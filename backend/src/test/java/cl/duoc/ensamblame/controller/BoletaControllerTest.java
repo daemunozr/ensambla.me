@@ -63,7 +63,7 @@ class BoletaControllerTest {
     void crearConDatosValidosResponde201ConLaBoleta() throws Exception {
         when(boletaService.crear(any(BoletaRequest.class))).thenReturn(boleta());
 
-        mockMvc.perform(post("/api/boletas").contentType(MediaType.APPLICATION_JSON).content(JSON_VALIDO))
+        mockMvc.perform(post("/api/v1/boletas").contentType(MediaType.APPLICATION_JSON).content(JSON_VALIDO))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.numero").value("ORD-2026-0004"))
                 .andExpect(jsonPath("$.total").value(39980.00))
@@ -77,7 +77,7 @@ class BoletaControllerTest {
                  "comuna": "RM-04", "medioPago": "Tarjeta", "lineas": []}
                 """;
 
-        mockMvc.perform(post("/api/boletas").contentType(MediaType.APPLICATION_JSON).content(invalido))
+        mockMvc.perform(post("/api/v1/boletas").contentType(MediaType.APPLICATION_JSON).content(invalido))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errores.lineas").exists())
                 .andExpect(jsonPath("$.errores.entrega").exists());
@@ -87,7 +87,7 @@ class BoletaControllerTest {
     void crearConUnaCantidadMenorAUnoResponde400() throws Exception {
         String invalido = JSON_VALIDO.replace("\"cantidad\": 1", "\"cantidad\": 0");
 
-        mockMvc.perform(post("/api/boletas").contentType(MediaType.APPLICATION_JSON).content(invalido))
+        mockMvc.perform(post("/api/v1/boletas").contentType(MediaType.APPLICATION_JSON).content(invalido))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errores['lineas[0].cantidad']").exists());
     }
@@ -96,7 +96,7 @@ class BoletaControllerTest {
     void crearConUnaEntregaDesconocidaResponde400() throws Exception {
         String invalido = JSON_VALIDO.replace("DOMICILIO", "VOLANDO");
 
-        mockMvc.perform(post("/api/boletas").contentType(MediaType.APPLICATION_JSON).content(invalido))
+        mockMvc.perform(post("/api/v1/boletas").contentType(MediaType.APPLICATION_JSON).content(invalido))
                 .andExpect(status().isBadRequest());
     }
 
@@ -105,7 +105,7 @@ class BoletaControllerTest {
         when(boletaService.crear(any(BoletaRequest.class)))
                 .thenThrow(new ReglaNegocioException("Sin stock suficiente: Teclado mecanico (quedan 0)."));
 
-        mockMvc.perform(post("/api/boletas").contentType(MediaType.APPLICATION_JSON).content(JSON_VALIDO))
+        mockMvc.perform(post("/api/v1/boletas").contentType(MediaType.APPLICATION_JSON).content(JSON_VALIDO))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.estado").value(409));
     }
@@ -115,7 +115,7 @@ class BoletaControllerTest {
         when(boletaService.obtener("ORD-2026-9999"))
                 .thenThrow(new RecursoNoEncontradoException("No existe la boleta ORD-2026-9999."));
 
-        mockMvc.perform(get("/api/boletas/ORD-2026-9999"))
+        mockMvc.perform(get("/api/v1/boletas/ORD-2026-9999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.mensaje").value("No existe la boleta ORD-2026-9999."));
     }
@@ -124,7 +124,7 @@ class BoletaControllerTest {
     void listarConElFiltroDeUsuarioResponde200() throws Exception {
         when(boletaService.listar("123456785")).thenReturn(List.of(boleta()));
 
-        mockMvc.perform(get("/api/boletas").param("usuario", "123456785"))
+        mockMvc.perform(get("/api/v1/boletas").param("usuario", "123456785"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].numero").value("ORD-2026-0004"));
     }

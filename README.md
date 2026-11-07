@@ -692,22 +692,23 @@ cliente ──JSON──▶ controller ──▶ service ──▶ repository �
 
 | Recurso | Método y ruta | Respuesta |
 |---|---|---|
-| Categorías | `GET /api/categorias`, `GET /api/categorias/{codigo}` | 200 |
-| | `POST /api/categorias`, `PUT /api/categorias/{codigo}` | 201 al crear, 200 al editar |
-| | `DELETE /api/categorias/{codigo}` | 204 (409 si tiene productos) |
-| Productos | `GET /api/productos` (opcional `?categoria=cpu` o `?q=ryzen`), `GET /api/productos/{sku}` | 200 |
-| | `POST /api/productos`, `PUT /api/productos/{sku}` | 201 al crear, 200 al editar |
-| | `DELETE /api/productos/{sku}` | 204 (409 si figura en boletas) |
-| Usuarios | `GET /api/usuarios`, `GET /api/usuarios/{run}` | 200 |
-| | `POST /api/usuarios`, `PUT /api/usuarios/{run}` | 201 al crear, 200 al editar |
-| | `DELETE /api/usuarios/{run}` | 204 (409 si tiene boletas) |
-| Boletas | `GET /api/boletas` (opcional `?usuario=123456785`), `GET /api/boletas/{numero}` | 200 (404 si no existe) |
-| | `POST /api/boletas` | 201 (404 si falta un producto o el usuario, 409 sin stock) |
+| Categorías | `GET /api/v1/categorias`, `GET /api/v1/categorias/{codigo}` | 200 |
+| | `POST /api/v1/categorias`, `PUT /api/v1/categorias/{codigo}` | 201 al crear, 200 al editar |
+| | `DELETE /api/v1/categorias/{codigo}` | 204 (409 si tiene productos) |
+| Productos | `GET /api/v1/productos` (opcional `?categoria=cpu` o `?q=ryzen`), `GET /api/v1/productos/{sku}` | 200 |
+| | `POST /api/v1/productos`, `PUT /api/v1/productos/{sku}` | 201 al crear, 200 al editar |
+| | `DELETE /api/v1/productos/{sku}` | 204 (409 si figura en boletas) |
+| Usuarios | `GET /api/v1/usuarios`, `GET /api/v1/usuarios/{run}` | 200 |
+| | `POST /api/v1/usuarios`, `PUT /api/v1/usuarios/{run}` | 201 al crear, 200 al editar |
+| | `DELETE /api/v1/usuarios/{run}` | 204 (409 si tiene boletas) |
+| Boletas | `GET /api/v1/boletas` (opcional `?usuario=123456785`), `GET /api/v1/boletas/{numero}` | 200 (404 si no existe) |
+| | `POST /api/v1/boletas` | 201 (404 si falta un producto o el usuario, 409 sin stock) |
 
-El identificador (código, SKU o RUN) no cambia al editar: en `PUT` manda el de la ruta. Las boletas
-solo se registran y se consultan: no hay `PUT` ni `DELETE`.
+Todas las rutas cuelgan de `/api/v1/`; las rutas sin versión (`/api/productos`) ya no existen y
+responden 404. El identificador (código, SKU o RUN) no cambia al editar: en `PUT` manda el de la ruta.
+Las boletas solo se registran y se consultan: no hay `PUT` ni `DELETE`.
 
-`POST /api/boletas` recibe el comprador (`nombre`, `correo`, `direccion`, `comuna`), `entrega`
+`POST /api/v1/boletas` recibe el comprador (`nombre`, `correo`, `direccion`, `comuna`), `entrega`
 (`DOMICILIO` o `RETIRO`), `medioPago`, `lineas` (`sku` y `cantidad`) y, opcional, el `usuario` (RUN);
 sin él la compra es de invitado. Los precios y el envío nunca vienen del cliente. En una sola
 transacción el servidor valida el stock de todas las líneas, congela el precio vigente (con el
@@ -731,8 +732,8 @@ Los errores tienen el formato `ErrorResponse`:
 | 500 | Error inesperado (el detalle solo queda en el log) |
 
 ```
-curl http://localhost:8080/api/productos?categoria=cpu
-curl -X POST http://localhost:8080/api/productos -H "Content-Type: application/json" \
+curl http://localhost:8080/api/v1/productos?categoria=cpu
+curl -X POST http://localhost:8080/api/v1/productos -H "Content-Type: application/json" \
   -d '{ "sku": "CPU-NUEVO-1", "nombre": "Procesador de prueba", "precio": 99990, "stock": 10, "categoria": "cpu" }'
 ```
 
@@ -772,7 +773,7 @@ CRUD de categorías, productos y usuarios.
 | Indicador | Peso | Hoy | Falta |
 |---|---:|---|---|
 | IE3.1.1 Backend y base de datos | 8 % | CRUD de categorías, productos y usuarios, y boletas con detalle y compra transaccional (sección 12.3), sobre MariaDB | Nada pendiente en el modelo; depende de la autenticación para asociar la boleta a la cuenta en sesión |
-| IE3.2.1 API REST y Swagger | 8 % | Endpoints CRUD y de boletas en `/api/...` | Versionado `/api/v1/`, endpoints de auth, Swagger UI (12.4, 12.6) |
+| IE3.2.1 API REST y Swagger | 8 % | Endpoints CRUD y de boletas versionados en `/api/v1/...` | Endpoints de auth, Swagger UI (12.4, 12.6) |
 | IE3.3.1 Autenticación JWT y roles | 6 % | Contraseña con BCrypt y enum `TipoUsuario` | Login, JWT con renovación, filtro de seguridad y permisos por rol (12.5) |
 | IE3.2.2 Integración backend-frontend | 6 % | CORS hacia `http://localhost:5173` y `:8081` | Llamadas `fetch`/`axios` desde React. **Frontend**, fuera de este apartado |
 | IE3.3.2 Sesión en el frontend | 6 % | Sesión simulada en `sessionStorage` | Guardar el token y mantenerlo al recargar. **Frontend** |
@@ -829,7 +830,8 @@ erDiagram
 
 ### 12.4 Endpoints a implementar
 
-Todas las rutas pasan a `/api/v1/` (las actuales `/api/...` se versionan). Formato del Anexo 3.
+Todas las rutas cuelgan de `/api/v1/` (las de la sección 11.4 ya están versionadas); las de `auth` se
+agregan con el mismo prefijo. Formato del Anexo 3.
 Roles: Admin (`ADMIN`), Logística (`LOGISTICA`, el «Vendedor» del enunciado) y Cliente (`CLIENTE`).
 
 | Método y ruta | Descripción | Entrada | Respuestas | Tipo | Roles |
@@ -877,7 +879,7 @@ vencimiento, firma alterada, renovación) y de acceso por rol (200, 401 y 403 en
 
 1. ~~Entidades y repositorios de `Boleta` y `DetalleBoleta`.~~ Hecho.
 2. ~~Servicio de compra y endpoints de boletas.~~ Hecho, con sus pruebas.
-3. Versionado `/api/v1/`.
+3. ~~Versionado `/api/v1/`.~~ Hecho.
 4. Spring Security, JWT y permisos por rol.
 5. Swagger.
 6. Pruebas.

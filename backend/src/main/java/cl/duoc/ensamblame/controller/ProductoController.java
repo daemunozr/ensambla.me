@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/productos")
+@RequestMapping("/api/v1/productos")
 public class ProductoController {
 
     private final ProductoService productoService;
@@ -27,7 +27,7 @@ public class ProductoController {
         this.productoService = productoService;
     }
 
-    // GET /api/productos?categoria=cpu   o   GET /api/productos?q=ryzen
+    // GET /api/v1/productos?categoria=cpu   o   GET /api/v1/productos?q=ryzen
     @GetMapping
     public ResponseEntity<List<ProductoResponse>> listar(
             @RequestParam(required = false) String categoria,

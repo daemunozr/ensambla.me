@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Una boleta se registra y se consulta, pero no se edita ni se elimina. */
 @RestController
-@RequestMapping("/api/boletas")
+@RequestMapping("/api/v1/boletas")
 public class BoletaController {
 
     private final BoletaService boletaService;
@@ -26,7 +26,7 @@ public class BoletaController {
         this.boletaService = boletaService;
     }
 
-    // GET /api/boletas   o   GET /api/boletas?usuario=123456785 (solo las de esa cuenta)
+    // GET /api/v1/boletas   o   GET /api/v1/boletas?usuario=123456785 (solo las de esa cuenta)
     @GetMapping
     public ResponseEntity<List<BoletaResponse>> listar(@RequestParam(required = false) String usuario) {
         return ResponseEntity.ok(boletaService.listar(usuario));

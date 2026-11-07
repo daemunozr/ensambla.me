@@ -53,7 +53,7 @@ class ProductoControllerTest {
                 new BigDecimal("249990"), null, 18, null, null, null, "cpu", "Procesadores (CPU)");
         when(productoService.crear(any(ProductoRequest.class))).thenReturn(creado);
 
-        mockMvc.perform(post("/api/productos").contentType(MediaType.APPLICATION_JSON).content(JSON_VALIDO))
+        mockMvc.perform(post("/api/v1/productos").contentType(MediaType.APPLICATION_JSON).content(JSON_VALIDO))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.sku").value("CPU-R5-7600"))
                 .andExpect(jsonPath("$.nombreCategoria").value("Procesadores (CPU)"));
@@ -65,7 +65,7 @@ class ProductoControllerTest {
                 {"sku": "AB", "nombre": "", "precio": -5, "stock": 3, "descuento": 95, "categoria": "cpu"}
                 """;
 
-        mockMvc.perform(post("/api/productos").contentType(MediaType.APPLICATION_JSON).content(invalido))
+        mockMvc.perform(post("/api/v1/productos").contentType(MediaType.APPLICATION_JSON).content(invalido))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.estado").value(400))
                 .andExpect(jsonPath("$.errores.sku").exists())
@@ -76,7 +76,7 @@ class ProductoControllerTest {
 
     @Test
     void crearConJsonMalFormadoResponde400() throws Exception {
-        mockMvc.perform(post("/api/productos").contentType(MediaType.APPLICATION_JSON).content("{no es json"))
+        mockMvc.perform(post("/api/v1/productos").contentType(MediaType.APPLICATION_JSON).content("{no es json"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.mensaje").value("El cuerpo de la solicitud no es valido."));
     }
@@ -86,7 +86,7 @@ class ProductoControllerTest {
         when(productoService.crear(any(ProductoRequest.class)))
                 .thenThrow(new ReglaNegocioException("Ya existe un producto con el codigo CPU-R5-7600."));
 
-        mockMvc.perform(post("/api/productos").contentType(MediaType.APPLICATION_JSON).content(JSON_VALIDO))
+        mockMvc.perform(post("/api/v1/productos").contentType(MediaType.APPLICATION_JSON).content(JSON_VALIDO))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.mensaje").value("Ya existe un producto con el codigo CPU-R5-7600."));
     }
@@ -95,14 +95,14 @@ class ProductoControllerTest {
     void consultarUnProductoInexistenteResponde404() throws Exception {
         when(productoService.obtener("NO-EXISTE")).thenThrow(new RecursoNoEncontradoException("No existe el producto NO-EXISTE."));
 
-        mockMvc.perform(get("/api/productos/NO-EXISTE"))
+        mockMvc.perform(get("/api/v1/productos/NO-EXISTE"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.estado").value(404));
     }
 
     @Test
     void eliminarResponde204SinCuerpo() throws Exception {
-        mockMvc.perform(delete("/api/productos/CPU-R5-7600"))
+        mockMvc.perform(delete("/api/v1/productos/CPU-R5-7600"))
                 .andExpect(status().isNoContent());
     }
 }
