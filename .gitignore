@@ -5,11 +5,12 @@
 
 # Swap files
 *.sw[a-p]
+
+#Dependencias de NodeJS
 node_modules
 
 # Archivo de entregable
 *.zip
-evaluacion*.md
 
 # Archivos de vite build
 dist/
@@ -17,6 +18,8 @@ dist/
 # Archivos de vitest
 coverage/
 
-
 # Backend (Maven)
 target/
+
+# Documentos evaluacion
+docs/
