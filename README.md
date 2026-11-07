@@ -25,12 +25,14 @@ ERS rev. 3.1 (29-10-2026), Daniel Muñoz. La versión formal IEEE 830 está en
 - [9. Desviaciones respecto del Anexo 1](#9-desviaciones-respecto-del-anexo-1)
 - [10. Pruebas](#10-pruebas)
 - [11. Backend (API REST)](#11-backend-api-rest)
+- [12. Evaluación 3: pendiente en backend y base de datos](#12-evaluación-3-pendiente-en-backend-y-base-de-datos)
 
 ## 1. Ejecución
 
 Requiere Node ≥ 22.22.
 
 ```
+cd frontend
 npm install
 npm run dev        # http://localhost:5173/
 npm test           # Vitest en modo watch (npm run test:run: una sola pasada)
@@ -39,7 +41,7 @@ npm run build      # salida en dist/
 npm run lint
 ```
 
-También se puede servir compilada con Docker: `docker compose up -d --build` en esta carpeta
+También se puede servir compilada con Docker: `docker compose up -d --build` en `frontend/`
 (http://localhost:5173). Necesita la red `ensamblame-net`, que crea `database/docker-compose.yml`
 (ver [11.2](#112-cómo-ejecutarlo)).
 
@@ -554,12 +556,12 @@ indicadores (productos, críticos, usuarios, órdenes) y accesos a cada mantened
 **RNF-09 Calidad y pruebas** · `src/**/*.test.js(x)`, `vite.config.js`
 804 pruebas en 89 archivos (Vitest y Testing Library, junto al archivo que prueban) que cubren
 renderizado, props, estado y eventos, con mocks (`vi.fn`, `vi.spyOn`, `vi.mock`). `npm run coverage`
-llega al 100 % de `src/`; el alcance está en [`cobertura-testing.md`](cobertura-testing.md).
+llega al 100 % de `src/` (excluye `main.jsx`, `semillas.js` y `creditos.js`).
 
 ## 8. Fuera de alcance
 
-- Conectar el frontend con el backend (sección 11) y persistir entre dispositivos: lo creado en la
-  tienda se pierde al cerrar el navegador.
+- Conectar el frontend con el backend (sección 11; lo que falta, en la sección 12) y persistir entre
+  dispositivos: lo creado en la tienda se pierde al cerrar el navegador.
 - Pasarela de pago real y estados del pedido (preparación, despacho, entrega).
 - Recuperación de contraseña y verificación de correo.
 - Motor de compatibilidad real (socket, tipo de RAM, formato, potencia).
@@ -606,9 +608,8 @@ Las pruebas viven junto al archivo que prueban (`components/Campo.jsx` → `Camp
 | **Total**                                |   **89** | **804** |
 
 Resultado del 29-10-2026: todas en verde y 100 % de sentencias, ramas, funciones y líneas de `src/`
-(se excluyen `main.jsx`, `semillas.js` y `creditos.js`). La estrategia y el inventario por archivo
-están en [`cobertura-testing.md`](cobertura-testing.md). Las pruebas del backend (JUnit 5 y Mockito)
-son aparte: `cd backend && mvn test`.
+(se excluyen `main.jsx`, `semillas.js` y `creditos.js`). Las pruebas del backend (JUnit 5 y
+Mockito) son aparte: `cd backend && mvn test`.
 
 ### Diseño responsivo
 
@@ -627,6 +628,7 @@ Si cambia `style.css` o el marcado, conviene repetir la revisión.
 
 API REST con **Spring Boot 4.1.2**, **Java 21** y **MariaDB** en Docker, para categorías, productos
 y usuarios. El frontend **todavía no la usa**. Deja CORS habilitado para `http://localhost:5173`.
+Lo que falta para la Evaluación 3 (boletas, Swagger, JWT y roles) está en la [sección 12](#12-evaluación-3-pendiente-en-backend-y-base-de-datos).
 
 ### 11.1 Requisitos
 
@@ -721,8 +723,138 @@ guiones); producto con SKU ≥ 3, precio ≥ 0, descuento 0–90 y stock ≥ 0; 
 correo de `duoc.cl`, `profesor.duoc.cl` o `gmail.com` y contraseña de 4–10.
 
 - Región y comuna del usuario son texto (`RM`, `RM-02`): no hay tablas de regiones ni comunas.
-- La contraseña se guarda **cifrada con BCrypt** y nunca aparece en las respuestas. No hay inicio de
-  sesión, tokens ni control de acceso por rol: cualquiera que llegue a la API usa todos los endpoints.
+- La contraseña se guarda **cifrada con BCrypt** y nunca aparece en las respuestas. Hoy no hay inicio de
+  sesión, tokens ni control de acceso por rol (cualquiera que llegue a la API usa todos los
+  endpoints); se agregan en la sección 12.
 - `ddl-auto: update` modifica las tablas solo en desarrollo; no hay migraciones.
 - Faltan órdenes, compatibilidad de componentes y blogs del modelo completo.
 - Las 30 pruebas son unitarias (Mockito y MockMvc); ninguna levanta la base de datos.
+
+## 12. Evaluación 3: pendiente en backend y base de datos
+
+Evaluación Parcial N° 3 (DSY1104, 40 % de la nota final): integrar un backend Spring Boot con la base
+de datos, exponer una API REST documentada en Swagger, asegurarla con roles y JWT, y conectarla con el
+frontend. Este apartado detalla lo que falta en `backend/` y `database/`; la sección 11 ya cubre el
+CRUD de categorías, productos y usuarios.
+
+### 12.1 Entregables y presentación
+
+- Repositorios públicos de GitHub del frontend y del backend, y ambos proyectos comprimidos (`.zip`).
+- Documento ERS, manual de usuario (con pantallazos), documentación de APIs y documento «APIs e
+  Integración» (modelo de la base, endpoints, pruebas y resultados de la comunicación).
+- Presentación de 15 min por equipo con demostración integrada, más 5 min de preguntas. La defensa es
+  individual: cada integrante responde sobre el código y sus cambios en GitHub.
+
+### 12.2 Estado frente a la rúbrica
+
+| Indicador | Peso | Hoy | Falta |
+|---|---:|---|---|
+| IE3.1.1 Backend y base de datos | 8 % | CRUD de categorías, productos y usuarios sobre MariaDB, con reglas de negocio | Boletas y detalle, y la lógica de compra (sección 12.3) |
+| IE3.2.1 API REST y Swagger | 8 % | Endpoints CRUD en `/api/...` | Versionado `/api/v1/`, endpoints de boletas y auth, Swagger UI (12.4, 12.6) |
+| IE3.3.1 Autenticación JWT y roles | 6 % | Contraseña con BCrypt y enum `TipoUsuario` | Login, JWT con renovación, filtro de seguridad y permisos por rol (12.5) |
+| IE3.2.2 Integración backend-frontend | 6 % | CORS hacia `http://localhost:5173` | Llamadas `fetch`/`axios` desde React. **Frontend**, fuera de este apartado |
+| IE3.3.2 Sesión en el frontend | 6 % | Sesión simulada en `sessionStorage` | Guardar el token y mantenerlo al recargar. **Frontend** |
+| IE3.3.3 Restricciones en el frontend | 6 % | `RutaProtegida` por rol simulado | Basarlo en el rol del token. **Frontend** |
+
+Los indicadores de la presentación (IE3.1.2, 3.2.3, 3.2.4, 3.3.4, 3.3.5 y 3.3.6, 60 % en total)
+piden explicar lo mismo de forma individual.
+
+### 12.3 Base de datos
+
+Modelo propuesto por el curso: `USUARIO → BOLETA → DETALLE_BOLETA ← PRODUCTO ← CATEGORIA`. `BOLETA` y
+`DETALLE_BOLETA` son la `ORDEN` y el `ITEM_ORDEN` del frontend (sección 4), con los mismos campos.
+Se mantiene MariaDB (compatible con MySQL) en `database/`.
+
+```mermaid
+erDiagram
+  CATEGORIA ||--o{ PRODUCTO : clasifica
+  USUARIO |o--o{ BOLETA : realiza
+  BOLETA ||--|{ DETALLE_BOLETA : detalla
+  PRODUCTO ||--o{ DETALLE_BOLETA : figura
+
+  BOLETA {
+    string numero PK "ORD-AAAA-NNNN"
+    string usuario FK "RUN, nulo = invitado"
+    date fecha "req"
+    string nombre "req, comprador"
+    string correo "req"
+    string direccion "req"
+    string comuna "req, texto"
+    string entrega "DOMICILIO o RETIRO"
+    number costoEnvio "req, >= 0"
+    string medioPago "Tarjeta terminada en NNNN"
+  }
+  DETALLE_BOLETA {
+    string boleta PK, FK
+    string producto PK, FK
+    int cantidad "req, >= 1"
+    number precioUnitario "req, precio vigente al comprar"
+  }
+```
+
+`CATEGORIA`, `PRODUCTO` y `USUARIO` ya existen (sección 11). A definir:
+
+- La compra (`POST` de la boleta) es una sola transacción: valida el stock de cada línea, guarda el
+  precio vigente (con el descuento aplicado), descuenta el stock y calcula el envío (domicilio $4.990,
+  gratis desde $200.000; retiro gratis). Si algo falla no cambia nada. Neto, IVA (19 %) y total no se
+  guardan: se calculan al responder.
+- El número sigue el formato `ORD-AAAA-NNNN`, correlativo dentro del año.
+- Integridad: no se elimina un producto con boletas ni un usuario con boletas (409, como la categoría
+  con productos). Esto difiere de la tienda simulada, que conserva el detalle aunque el producto se borre.
+- Las tablas las sigue creando JPA (`ddl-auto: update`); `CargaInicial` suma boletas de ejemplo.
+
+### 12.4 Endpoints a implementar
+
+Todas las rutas pasan a `/api/v1/` (las actuales `/api/...` se versionan). Formato del Anexo 3.
+Roles: Admin (`ADMIN`), Logística (`LOGISTICA`, el «Vendedor» del enunciado) y Cliente (`CLIENTE`).
+
+| Método y ruta | Descripción | Entrada | Respuestas | Tipo | Roles |
+|---|---|---|---|---|---|
+| `POST /auth/login` | Inicia sesión y entrega los tokens | `{correo, contrasena}` | 200 `{accessToken, refreshToken, rol}`, 400, 401 | Pública | — |
+| `POST /auth/registro` | Registra un Cliente | Datos de RF-01 | 201, 400, 409 | Pública | — |
+| `POST /auth/refresh` | Renueva el token de acceso | `{refreshToken}` | 200, 401 | Pública | — |
+| `GET /categorias`, `/categorias/{codigo}` | Lista o detalla categorías | — | 200, 404 | Pública | — |
+| `POST`, `PUT`, `DELETE /categorias…` | Mantenedor de categorías | `CategoriaRequest` | 201/200/204, 400, 404, 409 | Privada | Admin |
+| `GET /productos` (`?categoria=`, `?q=`), `/productos/{sku}` | Lista o detalla productos | — | 200, 404 | Pública | — |
+| `POST`, `PUT`, `DELETE /productos…` | Mantenedor de productos | `ProductoRequest` | 201/200/204, 400, 404, 409 | Privada | Admin |
+| `GET /usuarios`, `/usuarios/{run}` | Lista o detalla usuarios | — | 200, 404 | Privada | Admin |
+| `POST`, `PUT`, `DELETE /usuarios…` | Mantenedor de usuarios | `UsuarioRequest` | 201/200/204, 400, 404, 409 | Privada | Admin |
+| `GET /usuarios/me` | Perfil de la cuenta en sesión | — | 200, 401 | Privada | Todos |
+| `GET /boletas` | Lista las boletas | — | 200, 401, 403 | Privada | Admin y Logística (todas), Cliente (las suyas) |
+| `GET /boletas/{numero}` | Detalle con neto, IVA y total | — | 200, 401, 404 | Privada | Admin y Logística; Cliente solo la suya |
+| `POST /boletas` | Registra la compra (12.3) | Comprador, entrega, medio de pago y líneas `{sku, cantidad}` | 201, 400, 409 (sin stock) | Pública, con token opcional (con él, queda a nombre de la cuenta) | — |
+
+### 12.5 Seguridad (JWT y roles)
+
+- Dependencia `spring-boot-starter-security` más una librería JWT (por ejemplo `jjwt`). Sesión sin
+  estado (`STATELESS`) y un filtro que lee `Authorization: Bearer <token>`. Se conserva el cifrador
+  BCrypt de `SeguridadConfig`.
+- Token de acceso de vida corta (15 min) con `sub` = correo, `rol` y `exp`, firmado con HS256. Un token
+  de renovación más largo (7 días) permite pedir uno nuevo en `/auth/refresh` sin volver a iniciar sesión.
+- La clave de firma viene de la variable `JWT_SECRET` (nunca en el repositorio); en desarrollo tiene un
+  valor por defecto, como las credenciales de la base. **No sirve para producción.**
+- Permisos con `@PreAuthorize` o reglas por ruta, según la tabla 12.4. Las rutas públicas son las de
+  `auth`, los `GET` de categorías y productos y `POST /boletas`.
+- Sin token o con token inválido o vencido: 401. Con un rol sin permiso: 403. Ambos con el formato
+  `ErrorResponse` de la sección 11.4.
+- CORS debe permitir el encabezado `Authorization` desde `http://localhost:5173`.
+
+### 12.6 Swagger
+
+`springdoc-openapi-starter-webmvc-ui`: interfaz en `/swagger-ui.html` y especificación en
+`/v3/api-docs`. Se declara el esquema Bearer para probar las rutas privadas con «Authorize», y cada
+controlador lleva `@Tag`, `@Operation` y los códigos de respuesta de la tabla 12.4.
+
+### 12.7 Pruebas y orden de trabajo
+
+Mismo estilo de la sección 11 (JUnit 5, Mockito y MockMvc). Se suman pruebas de la compra (stock
+insuficiente, precio congelado, descuento de stock, envío), del servicio de tokens (generación,
+vencimiento, firma alterada, renovación) y de acceso por rol (200, 401 y 403 en cada ruta privada).
+
+1. Entidades y repositorios de `Boleta` y `DetalleBoleta`.
+2. Servicio de compra y endpoints de boletas.
+3. Versionado `/api/v1/`.
+4. Spring Security, JWT y permisos por rol.
+5. Swagger.
+6. Pruebas.
+7. Documentos de la sección 12.1.
