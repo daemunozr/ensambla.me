@@ -1,5 +1,6 @@
 package cl.duoc.ensamblame.controller;
 
+import cl.duoc.ensamblame.dto.request.PerfilRequest;
 import cl.duoc.ensamblame.dto.request.UsuarioRequest;
 import cl.duoc.ensamblame.dto.response.UsuarioResponse;
 import cl.duoc.ensamblame.security.UsuarioAutenticado;
@@ -49,6 +50,18 @@ public class UsuarioController {
     @GetMapping("/me")
     public ResponseEntity<UsuarioResponse> perfil(@AuthenticationPrincipal UsuarioAutenticado actual) {
         return ResponseEntity.ok(usuarioService.obtener(actual.run()));
+    }
+
+    // La cuenta en sesion edita sus datos; el RUN y el rol salen del token y no se pueden cambiar.
+    @Operation(summary = "Edita la cuenta en sesion",
+            description = "Cualquier rol con sesion. Cambia los datos de la cuenta del token, nunca el RUN ni el rol. Para cambiar la contrasena se envian `contrasenaActual` y `contrasenaNueva`. El token sigue siendo valido aunque cambie el correo.")
+    @ApiResponse(responseCode = "200", description = "Cuenta actualizada")
+    @ApiResponse(responseCode = "400", description = "Datos invalidos o contrasena actual incorrecta")
+    @ApiResponse(responseCode = "409", description = "El correo ya lo usa otra cuenta")
+    @PutMapping("/me")
+    public ResponseEntity<UsuarioResponse> actualizarPerfil(@AuthenticationPrincipal UsuarioAutenticado actual,
+            @Valid @RequestBody PerfilRequest request) {
+        return ResponseEntity.ok(usuarioService.actualizarPerfil(actual.run(), request));
     }
 
     @Operation(summary = "Obtiene un usuario",

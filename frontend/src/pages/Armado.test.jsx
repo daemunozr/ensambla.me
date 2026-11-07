@@ -1,12 +1,15 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { admisibles, categoriasDeArmado, producto, productosDe } from "../data/datos.js";
+import { admisibles, producto, productosDe } from "../data/datos.js";
+import * as semillas from "../data/semillas.js";
 import { precioVigente } from "../logic/precios.js";
 import { precio } from "../utils/formato.js";
 import { limpiarAlmacenamiento, renderConProviders } from "../testUtils.jsx";
 import Armado from "./Armado.jsx";
+import { guardarDatos } from "../testing/apiFalsa.js";
 
-const CATEGORIAS = categoriasDeArmado();
+// Los pasos del asistente salen de la semilla (la copia de datos recien se carga al empezar cada prueba).
+const CATEGORIAS = semillas.categorias.filter((c) => c.orden).sort((a, b) => a.orden - b.orden);
 const nombreDe = (sku) => producto(sku).nombre;
 
 const montar = () => renderConProviders(<Armado />);
@@ -98,7 +101,7 @@ describe("Armado", () => {
 
 	it("un componente sin stock aparece marcado y no se puede escoger (RF-07 CA7)", async () => {
 		const sinStock = { ...producto("CPU-R5-7600"), stock: 0 };
-		window.sessionStorage.setItem("productos", JSON.stringify([sinStock, ...productosDe("cpu").filter((p) => p.sku !== sinStock.sku), ...productosDe("placa")]));
+		guardarDatos("productos", [sinStock, ...productosDe("cpu").filter((p) => p.sku !== sinStock.sku), ...productosDe("placa")]);
 		montar();
 		await clic("Armar equipo completo");
 
@@ -203,7 +206,7 @@ describe("Armado", () => {
 		await elegir("CPU-R5-7600");
 		await clic("Finalizar aqui");
 		// El stock baja desde el panel mientras el cliente decide.
-		window.sessionStorage.setItem("productos", JSON.stringify([{ ...producto("CPU-R5-7600"), stock: 0 }]));
+		guardarDatos("productos", [{ ...producto("CPU-R5-7600"), stock: 0 }]);
 
 		await clic("Agregar el armado al carrito");
 

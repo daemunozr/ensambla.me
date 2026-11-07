@@ -28,6 +28,20 @@ export function leerCarrito() {
 	}
 }
 
+/**
+ * Lineas tal como estan guardadas, sin ajustarlas al catalogo. El proveedor las
+ * ajusta con el catalogo vigente; normalizarlas aqui las perderia si el
+ * catalogo aun no llego de la API.
+ */
+export function leerLineasGuardadas() {
+	try {
+		const guardado = JSON.parse(window.localStorage.getItem(CLAVE_CARRITO) ?? "[]");
+		return Array.isArray(guardado) ? guardado : [];
+	} catch {
+		return [];
+	}
+}
+
 export function guardarCarrito(lineas) {
 	try {
 		window.localStorage.setItem(CLAVE_CARRITO, JSON.stringify(lineas));

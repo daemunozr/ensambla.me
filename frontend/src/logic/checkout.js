@@ -3,8 +3,9 @@
  * items de la orden), sin DOM ni almacenamiento.
  *
  * Estas funciones reciben como parametro como buscar un producto por SKU y no
- * importan data/datos.js: datos.js las usa en crearOrden y un import en el otro
- * sentido seria circular.
+ * importan data/datos.js, para poder probarlas con un catalogo propio. Sirven para
+ * mostrar el total antes de pagar: el precio y el envio que se cobran los calcula el
+ * servidor al registrar la compra.
  */
 import { precioVigente } from "./precios.js";
 

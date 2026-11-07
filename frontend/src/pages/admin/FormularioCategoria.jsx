@@ -33,9 +33,9 @@ function Formulario({ codigo }) {
 	);
 	useTitulo(existente ? `Editar ${existente.nombre} — Panel Ensambla.me` : "Nueva categoria — Panel Ensambla.me");
 
-	const alEnviar = (datos) => {
-		// La capa de datos rechaza un codigo repetido al crear.
-		const resultado = existente ? actualizarCategoria(existente.codigo, datos) : crearCategoria(datos);
+	const alEnviar = async (datos) => {
+		// El servidor rechaza un codigo repetido al crear.
+		const resultado = existente ? await actualizarCategoria(existente.codigo, datos) : await crearCategoria(datos);
 		if (!resultado.ok) {
 			setAviso({ tipo: "danger", contenido: resultado.mensaje });
 			return;

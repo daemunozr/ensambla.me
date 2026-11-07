@@ -12,13 +12,13 @@ function montar({ carrito = CARRITO, state } = {}) {
 	if (carrito.length) window.localStorage.setItem("carrito", JSON.stringify(carrito));
 	return render(
 		<MemoryRouter initialEntries={[{ pathname: "/pago/error", state }]}>
-			<DatosProvider>
-				<SesionProvider>
+			<SesionProvider>
+				<DatosProvider precargado>
 					<CarritoProvider>
 						<PagoError />
 					</CarritoProvider>
-				</SesionProvider>
-			</DatosProvider>
+				</DatosProvider>
+			</SesionProvider>
 		</MemoryRouter>,
 	);
 }

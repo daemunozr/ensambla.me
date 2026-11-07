@@ -67,6 +67,7 @@ public class SeguridadConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/boletas").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/boletas/**").hasAnyRole("ADMIN", "LOGISTICA", "CLIENTE")
                         .requestMatchers(HttpMethod.GET, "/api/v1/usuarios/me").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/usuarios/me").authenticated()
                         .requestMatchers("/api/v1/usuarios/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthFilter(jwtService, entryPoint), UsernamePasswordAuthenticationFilter.class);

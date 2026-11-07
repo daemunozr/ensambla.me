@@ -2,6 +2,7 @@ import { screen, within } from "@testing-library/react";
 import { categorias, productosDe } from "../data/datos.js";
 import { limpiarAlmacenamiento, renderConProviders } from "../testUtils.jsx";
 import Categorias from "./Categorias.jsx";
+import { guardarDatos } from "../testing/apiFalsa.js";
 
 const seccion = (nombre) => screen.getByRole("heading", { level: 2, name: nombre }).closest("section");
 
@@ -34,7 +35,7 @@ describe("Categorias", () => {
 
 	it("con un solo producto el enlace dice «Ver el producto»", () => {
 		const gpu = productosDe("gpu");
-		window.sessionStorage.setItem("productos", JSON.stringify([...productosDe("cpu"), gpu[0]]));
+		guardarDatos("productos", [...productosDe("cpu"), gpu[0]]);
 		renderConProviders(<Categorias />);
 		const categoria = categorias().find((c) => c.codigo === "gpu");
 
@@ -42,7 +43,7 @@ describe("Categorias", () => {
 	});
 
 	it("una categoria sin productos muestra un aviso y no ofrece enlace (RF-19 CA2)", () => {
-		window.sessionStorage.setItem("productos", JSON.stringify(productosDe("cpu")));
+		guardarDatos("productos", productosDe("cpu"));
 		renderConProviders(<Categorias />);
 		const gpu = categorias().find((c) => c.codigo === "gpu");
 
@@ -52,7 +53,7 @@ describe("Categorias", () => {
 	});
 
 	it("incluye las categorias nuevas que crea el administrador (RF-25 CA3)", () => {
-		window.sessionStorage.setItem("categorias", JSON.stringify([...categorias(), { codigo: "sillas", nombre: "Sillas gamer", orden: null }]));
+		guardarDatos("categorias", [...categorias(), { codigo: "sillas", nombre: "Sillas gamer", orden: null }]);
 		renderConProviders(<Categorias />);
 
 		expect(within(seccion("Sillas gamer")).getByText("Todavia no hay productos en Sillas gamer.")).toBeInTheDocument();

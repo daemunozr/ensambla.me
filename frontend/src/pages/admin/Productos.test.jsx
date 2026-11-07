@@ -1,9 +1,10 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router";
-import { producto, productos } from "../../data/datos.js";
+import { itemsOrden, producto, productos } from "../../data/datos.js";
 import { SESION_ADMIN, SESION_LOGISTICA, limpiarAlmacenamiento, renderConProviders } from "../../testUtils.jsx";
 import ProductosAdmin from "./Productos.jsx";
+import { guardarDatos } from "../../testing/apiFalsa.js";
 
 const LOGISTICA = SESION_LOGISTICA;
 
@@ -65,7 +66,7 @@ describe("admin / Productos", () => {
 	});
 
 	it("marca los productos en stock critico", () => {
-		window.sessionStorage.setItem("productos", JSON.stringify([{ ...producto("CPU-R5-7600"), stock: 1, stockCritico: 5 }]));
+		guardarDatos("productos", [{ ...producto("CPU-R5-7600"), stock: 1, stockCritico: 5 }]);
 		montar();
 
 		expect(screen.getByText("Stock critico")).toBeInTheDocument();
@@ -101,17 +102,35 @@ describe("admin / Productos", () => {
 			expect(screen.getAllByRole("row")).toHaveLength(productos().length + 1);
 		});
 
+		const sinVentas = () => productos().find((p) => !itemsOrden().some((i) => i.producto === p.sku));
+
+		async function confirmarEliminacion(sku) {
+			await userEvent.click(within(filaDe(sku)).getByRole("button", { name: "Eliminar" }));
+			await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Eliminar" }));
+			await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+		}
+
 		it("confirmar elimina el producto, quita su fila y avisa", async () => {
 			montar();
 			const total = productos().length;
+			const { sku } = sinVentas();
 
-			await userEvent.click(within(filaDe("CPU-R5-7600")).getByRole("button", { name: "Eliminar" }));
-			await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Eliminar" }));
+			await confirmarEliminacion(sku);
 
-			expect(producto("CPU-R5-7600")).toBeUndefined();
-			expect(screen.queryByText("CPU-R5-7600")).not.toBeInTheDocument();
+			expect(producto(sku)).toBeUndefined();
+			expect(screen.queryByText(sku)).not.toBeInTheDocument();
 			expect(screen.getAllByRole("row")).toHaveLength(total);
-			expect(screen.getByRole("alert")).toHaveTextContent("CPU-R5-7600");
+			expect(screen.getByRole("alert")).toHaveTextContent(sku);
+		});
+
+		it("un producto que figura en boletas no se elimina y el servidor explica por que", async () => {
+			montar();
+
+			await confirmarEliminacion("CPU-R5-7600");
+
+			expect(producto("CPU-R5-7600")).toBeDefined();
+			expect(screen.getByRole("alert")).toHaveClass("alert-danger");
+			expect(screen.getByRole("alert")).toHaveTextContent("figura en boletas");
 		});
 	});
 });

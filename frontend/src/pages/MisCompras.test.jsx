@@ -3,6 +3,7 @@ import { orden, ordenesDe, totalOrden, usuario } from "../data/datos.js";
 import { precio } from "../utils/formato.js";
 import { limpiarAlmacenamiento, renderConProviders, sesionDe } from "../testUtils.jsx";
 import MisCompras from "./MisCompras.jsx";
+import { guardarDatos } from "../testing/apiFalsa.js";
 
 const montar = (run) => renderConProviders(<MisCompras />, { sesion: sesionDe(usuario(run)) });
 
@@ -27,7 +28,7 @@ describe("MisCompras", () => {
 	});
 
 	it("usa el singular con una sola compra", () => {
-		window.sessionStorage.setItem("ordenes", JSON.stringify([orden("ORD-2026-0001")]));
+		guardarDatos("ordenes", [orden("ORD-2026-0001")]);
 		montar("123456785");
 
 		expect(screen.getByText(`1 compra por un total de ${precio(totalOrden("ORD-2026-0001"))}.`)).toBeInTheDocument();
@@ -44,7 +45,7 @@ describe("MisCompras", () => {
 	});
 
 	it("sin compras avisa y enlaza al catalogo (RF-24 CA2)", () => {
-		window.sessionStorage.setItem("ordenes", "[]");
+		guardarDatos("ordenes", []);
 		montar("123456785");
 
 		expect(screen.getByText("Todavia no has hecho compras con esta cuenta.")).toBeInTheDocument();

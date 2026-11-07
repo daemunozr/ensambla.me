@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ZonaAviso } from "../components/Alerta.jsx";
 import Campo from "../components/Campo.jsx";
 import CampoCorreo from "../components/CampoCorreo.jsx";
 import EstadoVacio from "../components/EstadoVacio.jsx";
 import SelectRegionComuna from "../components/SelectRegionComuna.jsx";
-import { useDatos } from "../context/datos.js";
 import { useSesion } from "../context/sesion.js";
 import { comuna, nombreRol } from "../data/datos.js";
 import { useFormulario } from "../hooks/useFormulario.js";
 import { useTitulo } from "../hooks/useTitulo.js";
+import { usuarioDeApi } from "../services/adaptadores.js";
+import { miCuenta } from "../services/recursos.js";
 import { reglas } from "../utils/validaciones.js";
 
 const DATOS = {
@@ -28,9 +29,8 @@ const CONTRASENA = {
 const CONTRASENA_VACIA = { actual: "", nueva: "", repetir: "" };
 
 /** Datos personales editables. RUN y tipo de usuario no se editan aqui: el rol solo lo asigna un administrador. */
-function DatosPersonales({ cuenta }) {
-	const { actualizarUsuario } = useDatos();
-	const { actualizar } = useSesion();
+function DatosPersonales({ cuenta, alGuardar }) {
+	const { actualizarPerfil } = useSesion();
 	const inicial = {
 		nombre: cuenta.nombre,
 		apellidos: cuenta.apellidos,
@@ -44,10 +44,8 @@ function DatosPersonales({ cuenta }) {
 	const { registrar, estado, errores, enviar } = formulario;
 	const [aviso, setAviso] = useState(null);
 
-	const alEnviar = (datos) => {
-		// Se parte de la cuenta guardada: asi se conservan la contrasena y el tipo de usuario.
-		const resultado = actualizarUsuario(cuenta.run, {
-			...cuenta,
+	const alEnviar = async (datos) => {
+		const resultado = await actualizarPerfil(cuenta, {
 			nombre: datos.nombre,
 			apellidos: datos.apellidos,
 			correo: datos.correo,
@@ -59,7 +57,7 @@ function DatosPersonales({ cuenta }) {
 			setAviso({ tipo: "danger", contenido: resultado.mensaje });
 			return;
 		}
-		actualizar({ nombre: datos.nombre, apellidos: datos.apellidos, correo: resultado.registro.correo });
+		alGuardar(resultado.cuenta);
 		setAviso({ tipo: "success", contenido: "Tus datos se guardaron correctamente." });
 	};
 
@@ -137,19 +135,18 @@ function DatosPersonales({ cuenta }) {
 	);
 }
 
-/** Cambio de contrasena: pide la actual y repite la nueva. */
+/** Cambio de contrasena: pide la actual y repite la nueva. El servidor comprueba la actual. */
 function CambioContrasena({ cuenta }) {
-	const { actualizarUsuario } = useDatos();
+	const { actualizarPerfil } = useSesion();
 	const { registrar, estado, errores, enviar, reiniciar } = useFormulario(CONTRASENA_VACIA, CONTRASENA);
 	const [aviso, setAviso] = useState(null);
 
-	const alEnviar = (datos) => {
+	const alEnviar = async (datos) => {
 		const rechazo = (contenido) => setAviso({ tipo: "danger", contenido });
-		if (datos.actual !== cuenta.contrasena) return rechazo("La contrasena actual no es correcta.");
 		if (datos.nueva !== datos.repetir) return rechazo("La contrasena nueva y su repeticion no coinciden.");
 		if (datos.nueva === datos.actual) return rechazo("La contrasena nueva debe ser distinta de la actual.");
 
-		const resultado = actualizarUsuario(cuenta.run, { ...cuenta, contrasena: datos.nueva });
+		const resultado = await actualizarPerfil(cuenta, { contrasenaActual: datos.actual, contrasenaNueva: datos.nueva });
 		if (!resultado.ok) return rechazo(resultado.mensaje);
 		setAviso({ tipo: "success", contenido: "Tu contrasena se cambio correctamente." });
 		reiniciar();
@@ -207,8 +204,22 @@ function CambioContrasena({ cuenta }) {
 export default function Perfil({ enPanel = false }) {
 	useTitulo(enPanel ? "Mi perfil — Panel Ensambla.me" : "Mi perfil — Ensambla.me");
 	const { sesion } = useSesion();
-	const { usuarios } = useDatos();
-	const cuenta = usuarios.find((usuario) => usuario.run === sesion?.run);
+	// La cuenta se pide a la API: es la unica forma de que cualquier rol vea sus propios datos
+	// (la lista de usuarios solo la ve un administrador).
+	const [cuenta, setCuenta] = useState(null);
+	const [estado, setEstado] = useState("cargando");
+
+	useEffect(() => {
+		let vigente = true;
+		miCuenta().then((respuesta) => {
+			if (!vigente) return;
+			if (respuesta.ok) setCuenta(usuarioDeApi(respuesta.datos));
+			setEstado(respuesta.ok ? "lista" : "error");
+		});
+		return () => {
+			vigente = false;
+		};
+	}, [sesion?.run]);
 
 	return (
 		<main className={enPanel ? "col-12 col-lg-9" : undefined}>
@@ -219,7 +230,7 @@ export default function Perfil({ enPanel = false }) {
 				<div className="row g-4">
 					<div className="col-12 col-xl-7">
 						{/* key: si cambia la cuenta, el formulario parte de sus datos */}
-						<DatosPersonales key={cuenta.run} cuenta={cuenta} />
+						<DatosPersonales key={cuenta.run} cuenta={cuenta} alGuardar={setCuenta} />
 					</div>
 					<div className="col-12 col-xl-5">
 						<CambioContrasena key={cuenta.run} cuenta={cuenta} />
@@ -227,7 +238,11 @@ export default function Perfil({ enPanel = false }) {
 				</div>
 			) : (
 				<EstadoVacio>
-					<p className="mb-0">No encontramos los datos de tu cuenta. Cierra la sesion e ingresa de nuevo.</p>
+					<p className="mb-0" role={estado === "cargando" ? "status" : undefined}>
+						{estado === "cargando"
+							? "Cargando tus datos…"
+							: "No pudimos cargar los datos de tu cuenta. Cierra la sesion e ingresa de nuevo."}
+					</p>
 				</EstadoVacio>
 			)}
 		</main>

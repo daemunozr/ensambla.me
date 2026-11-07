@@ -44,7 +44,10 @@ npm run lint
 También se puede servir compilada con Docker, sin tener Node instalado: `docker compose up -d --build`
 en `frontend/` (http://localhost:8081). No depende de las otras partes (ver [11.2](#112-cómo-ejecutarlo)).
 
-La aplicación **no usa** el backend de `backend/`: trabaja con datos simulados de `src/data/`.
+La aplicación usa la API de `backend/` (ver [11.2](#112-cómo-ejecutarlo) y [12.8](#128-integración-del-frontend-con-la-api)):
+catálogo, categorías, usuarios, boletas, registro, login y compra salen de ella. Para desarrollar hace falta
+tener la API en marcha (`http://localhost:8080`); otra URL se define en `frontend/.env.local` con
+`VITE_API_URL=http://servidor:8080/api/v1`. Las cuentas de abajo son las que carga el backend.
 
 | Rol                     | Correo             | Contraseña   |
 |-------------------------|--------------------|--------------|
@@ -62,7 +65,8 @@ el stock.
 
 - React 19 con Vite 8 (JSX), React Router 8 y Bootstrap 5.3.8 por npm, sin CDN.
 - Pruebas con Vitest 5, Testing Library y jsdom. Lint con ESLint 10.
-- Los datos viven en `src/data/` (semillas y CRUD) y en Web Storage. Sin `fetch()` ni APIs externas.
+- Los datos vienen de la API REST con `fetch` (`src/services/`) y se guardan en memoria (`src/data/datos.js`); el carrito
+  y la sesión usan Web Storage. Regiones, comunas, compatibilidad y blogs siguen en `src/data/semillas.js`.
 - Una hoja de estilos propia (`src/styles/style.css`), sin atributos `style=""`.
 - HTML semántico y diseño responsivo con la grilla de Bootstrap.
 - Navegadores objetivo: Chrome, Firefox y Edge actuales.
@@ -71,23 +75,24 @@ el stock.
 
 ```mermaid
 flowchart LR
-  M["main.jsx<br/>BrowserRouter"] --> D["DatosProvider"]
-  D --> S["SesionProvider"]
-  S --> C["CarritoProvider"]
+  M["main.jsx<br/>BrowserRouter"] --> S["SesionProvider"]
+  S --> D["DatosProvider"]
+  D --> C["CarritoProvider"]
   C --> R["Routes (App.jsx)"]
   R --> P["pages/ · pages/admin/"]
   P --> K["components/ · hooks/"]
   P --> L["logic/ (reglas sin DOM)"]
-  P --> X["data/datos.js<br/>CRUD"]
-  X --> Y["coleccion.js"]
-  Y --> SS["sessionStorage:<br/>productos, usuarios, categorias,<br/>ordenes, itemsOrden, sesion"]
+  P --> X["data/datos.js<br/>copia en memoria + escrituras"]
+  X --> Y["services/ (fetch)"]
+  Y --> API["API REST /api/v1"]
+  S --> SS["sessionStorage:<br/>sesion (tokens JWT), ultimaBoleta"]
   C --> LS["localStorage: carrito"]
 ```
 
 ### 3.1 Composición de vistas
 
-`App.jsx` envuelve las rutas en `DatosProvider` (listas y CRUD, y vuelve a renderizar tras cada
-cambio), `SesionProvider` y `CarritoProvider`, de afuera hacia adentro. Las rutas se agrupan en tres
+`App.jsx` envuelve las rutas en `SesionProvider`, `DatosProvider` (carga las listas de la API, expone las
+escrituras y vuelve a renderizar tras cada cambio) y `CarritoProvider`, de afuera hacia adentro. Las rutas se agrupan en tres
 diseños (`components/layout/Layouts.jsx`): tienda con barra lateral de categorías, tienda sin ella y
 panel de administración. Las vistas protegidas usan `RutaProtegida`.
 
@@ -111,7 +116,9 @@ src/
 ├── hooks/            useFormulario, useCriterios, useEliminacion, useTitulo
 ├── logic/            armado, busqueda, carrito, catalogo, checkout, ordenes, pago,
 │                     precios, reportes, stock (reglas puras, sin DOM ni almacenamiento)
-├── data/             semillas.js (datos de prueba), coleccion.js, datos.js (CRUD)
+├── services/         api.js (fetch, token y renovación), recursos.js (un método por endpoint), adaptadores.js
+├── data/             datos.js (copia en memoria y escrituras), semillas.js (regiones, comunas, compatibilidad, blogs)
+├── testing/          apiFalsa.js (la API simulada con que corren las pruebas)
 ├── utils/            formato, recursos, validaciones
 ├── styles/style.css
 └── setupTests.js, testUtils.jsx, *.test.js(x) (junto al archivo que prueban)
@@ -123,11 +130,11 @@ public/resources/     img/ (productos/<SKU>.webp, SVG), video/ensamblame.mp4
 | Almacén          | Clave                                                          | Contenido                                                                                          | Vida                                      |
 |------------------|----------------------------------------------------------------|----------------------------------------------------------------------------------------------------|-------------------------------------------|
 | `localStorage`   | `carrito`                                                      | JSON `[{linea, producto, cantidad, armado}]` (`armado` es `null` en las sueltas); si es corrupto, se reinicia vacío | Persistente; no se borra al cerrar sesión |
-| `sessionStorage` | `sesion`                                                       | RUN, nombre, apellidos, correo y rol                                                               | Hasta el logout o cerrar el navegador     |
-| `sessionStorage` | `productos`, `usuarios`, `categorias`, `ordenes`, `itemsOrden` | Copia de trabajo sembrada desde `semillas.js`, donde escribe el CRUD de `datos.js`                 | Sesión del navegador                      |
+| `sessionStorage` | `sesion`                                                       | Tokens JWT (`accessToken`, `refreshToken`), RUN, nombre, apellidos, correo y rol                   | Hasta el logout o cerrar la pestaña; recargar la mantiene |
+| `sessionStorage` | `ultimaBoleta`                                                 | La boleta que devolvió la última compra (un invitado no puede volver a pedirla a la API)           | Hasta cerrar sesión o la pestaña          |
 
-`coleccion.js` lee la colección en cada consulta y la escribe completa en cada cambio. Si el
-contenido no se puede leer, vuelve a la semilla.
+Productos, categorías, usuarios y boletas **no se guardan en el navegador**: `data/datos.js` los mantiene en memoria,
+cargados de la API al abrir la app y al iniciar o cerrar sesión, y los vuelve a leer tras cada escritura.
 
 ### 3.3 Roles
 
@@ -151,8 +158,9 @@ pages / context → logic    pages / components → hooks, utils
 | Carpeta | Archivos | Objetivo |
 |---|---|---|
 | `src/` | `main.jsx`, `App.jsx` | Monta React con Bootstrap y el CSS propio; `App` define las rutas con layouts anidados y `RutaProtegida` |
-| `context/` | `datos`, `sesion`, `carrito` (+ `*Provider.jsx`) | Datos y CRUD con re-render; sesión en `sessionStorage`; líneas del carrito en `localStorage` |
-| `data/` | `coleccion`, `datos`, `semillas`, `creditos` | Colección genérica sobre `sessionStorage`; tablas con CRUD y reglas de integridad; datos iniciales (con los 3 blogs) y de créditos |
+| `context/` | `datos`, `sesion`, `carrito` (+ `*Provider.jsx`) | Datos de la API con re-render; sesión con tokens en `sessionStorage`; líneas del carrito en `localStorage` |
+| `services/` | `api`, `recursos`, `adaptadores` | Cliente `fetch` (Bearer, renovación de token, errores), un método por endpoint y traducción entre la forma de la API y la de la interfaz |
+| `data/` | `datos`, `semillas`, `creditos` | Copia en memoria de lo que entrega la API y sus escrituras; regiones, comunas, compatibilidad y blogs; créditos |
 | `logic/` | `catalogo`, `busqueda`, `precios`, `stock` | Filtros y orden, búsqueda, precio vigente y stock |
 | | `carrito`, `checkout`, `pago` | Líneas, entrega, envío, stock y pasarela simulada |
 | | `ordenes`, `reportes`, `armado` | IVA y permisos de órdenes, estadísticas y compatibilidad |
@@ -313,11 +321,11 @@ erDiagram
 | Datos                                                          | Origen                      | Escritura                                                                |
 |----------------------------------------------------------------|-----------------------------|--------------------------------------------------------------------------|
 | `compatibilidad`, `regiones`, `comunas`, `roles`, `blogs`      | Constantes de `semillas.js` | Solo lectura                                                             |
-| `productos`, `usuarios`, `categorias`, `ordenes`, `itemsOrden` | Semilla en `semillas.js`    | Copia en `sessionStorage` vía `coleccion.js`; el CRUD está en `datos.js` |
+| `productos`, `usuarios`, `categorias`, `ordenes`, `itemsOrden` | API REST (`/api/v1`)       | Con `fetch` desde `data/datos.js`; la API valida y aplica las reglas      |
 | Ítem carrito                                                   | —                           | `localStorage.carrito` (`context/carrito.js`, reglas en `logic/carrito.js`) |
 
-- Las escrituras de `datos.js` aplican las reglas de negocio y devuelven `{ ok, registro, mensaje }`;
-  con `ok` en `false` no cambian nada.
+- Las escrituras de `datos.js` son asíncronas: llaman a la API (que aplica las reglas de negocio) y devuelven
+  `{ ok, registro, mensaje }`; con `ok` en `false` no cambian nada y `mensaje` es el del servidor.
 - Claves: comuna `RM-02` (región más índice); orden `ORD-2026-0001` (correlativo por año de la
   compra); armado `ARM-<Date.now() en base 36>`; RUN con DV, sin puntos ni guion. Fechas ISO.
 - Los precios incluyen IVA (19 %). La orden guarda el precio vigente de cada ítem, porque el del
@@ -553,14 +561,13 @@ Catálogo, ofertas, armado y carrito llevan la barra de categorías. El home del
 indicadores (productos, críticos, usuarios, órdenes) y accesos a cada mantenedor.
 
 **RNF-09 Calidad y pruebas** · `src/**/*.test.js(x)`, `vite.config.js`
-804 pruebas en 89 archivos (Vitest y Testing Library, junto al archivo que prueban) que cubren
+833 pruebas en 90 archivos (Vitest y Testing Library, junto al archivo que prueban) que cubren
 renderizado, props, estado y eventos, con mocks (`vi.fn`, `vi.spyOn`, `vi.mock`). `npm run coverage`
-llega al 100 % de `src/` (excluye `main.jsx`, `semillas.js` y `creditos.js`).
+llega al 99 % de las sentencias de `src/` (excluye `main.jsx`, `semillas.js`, `creditos.js` y `testing/`).
 
 ## 8. Fuera de alcance
 
-- Conectar el frontend con el backend (sección 11; lo que falta, en la sección 12) y persistir entre
-  dispositivos: lo creado en la tienda se pierde al cerrar el navegador.
+- Persistir el carrito entre dispositivos: sigue en `localStorage` del navegador.
 - Pasarela de pago real y estados del pedido (preparación, despacho, entrega).
 - Recuperación de contraseña y verificación de correo.
 - Motor de compatibilidad real (socket, tipo de RAM, formato, potencia).
@@ -594,20 +601,23 @@ npm run coverage   # tabla en consola + coverage/index.html
 
 Las pruebas viven junto al archivo que prueban (`components/Campo.jsx` → `Campo.test.jsx`).
 `src/testUtils.jsx` monta una vista con los proveedores de `App.jsx` dentro de un `MemoryRouter` y
-`src/setupTests.js` carga `jest-dom`. `Checkout.mocks.test.jsx` y `Blogs.vacio.test.jsx` usan
+`src/setupTests.js` carga `jest-dom` y, antes de cada prueba, deja lista la **API falsa** de
+`src/testing/apiFalsa.js`: un `fetch` simulado con los mismos endpoints, permisos y errores que el backend
+(tokens `ROL:RUN`, 401/403/409, stock, boletas por cuenta), sembrado con `semillas.js`. Así las pruebas de las
+páginas recorren el camino real (servicios, adaptadores y cliente HTTP) sin red ni backend. `Checkout.mocks.test.jsx` y `Blogs.vacio.test.jsx` usan
 `vi.mock` para la pasarela de pago y la lista de blogs.
 
 | Grupo                                    | Archivos | Pruebas |
 |------------------------------------------|---------:|--------:|
 | Lógica y utilidades (`logic/`, `utils/`) |       13 |     223 |
-| Datos, contextos y hooks                 |       11 |     115 |
+| Datos, servicios, contextos y hooks      |       12 |     138 |
 | Componentes (incluido `layout/`)         |       27 |     147 |
-| Páginas, panel y flujos                  |       36 |     277 |
-| Casos límite (`ramas*.test.jsx`)         |        2 |      42 |
-| **Total**                                |   **89** | **804** |
+| Páginas, panel y flujos                  |       36 |     284 |
+| Casos límite (`ramas*.test.jsx`)         |        2 |      41 |
+| **Total**                                |   **90** | **833** |
 
-Resultado del 29-10-2026: todas en verde y 100 % de sentencias, ramas, funciones y líneas de `src/`
-(se excluyen `main.jsx`, `semillas.js` y `creditos.js`). Las pruebas del backend (JUnit 5 y
+Todas en verde. Cobertura de `src/`: 99,4 % de sentencias, 98,0 % de ramas, 100 % de funciones y 99,9 % de
+líneas (se excluyen `main.jsx`, `semillas.js`, `creditos.js` y `testing/`). Las pruebas del backend (JUnit 5 y
 Mockito) son aparte: `cd backend && mvn test`.
 
 ### Diseño responsivo
@@ -626,8 +636,8 @@ Si cambia `style.css` o el marcado, conviene repetir la revisión.
 ## 11. Backend (API REST)
 
 API REST con **Spring Boot 4.1.2**, **Java 21** y **MariaDB** en Docker, para categorías, productos,
-usuarios y boletas. El frontend **todavía no la usa**. Deja CORS habilitado para `http://localhost:5173` (Vite) y `http://localhost:8081` (frontend en Docker).
-La API se documenta con Swagger (sección 11.4). Lo que falta para la Evaluación 3 (la integración con el frontend y los documentos) está en la [sección 12](#12-evaluación-3-pendiente-en-backend-y-base-de-datos).
+usuarios y boletas. El frontend la usa desde la Evaluación 3 (sección 12.8). Deja CORS habilitado para `http://localhost:5173` (Vite) y `http://localhost:8081` (frontend en Docker).
+La API se documenta con Swagger (sección 11.4). Lo que falta para la Evaluación 3 (los documentos) está en la [sección 12](#12-evaluación-3-pendiente-en-backend-y-base-de-datos).
 
 ### 11.1 Requisitos
 
@@ -648,7 +658,7 @@ orden. El backend llega a la base por el host (`host.docker.internal` y el puert
 |---|---|---|---|---|
 | `database/` | MariaDB 11.8 | `docker compose up -d` | `localhost:3307` | `DB_PORT` |
 | `backend/` | API Spring Boot (`Dockerfile` propio) | `docker compose up -d --build` | http://localhost:8080 (Swagger UI en `/swagger-ui.html`) | `API_PORT` |
-| `frontend/` | React compilado y servido con nginx | `docker compose up -d --build` | http://localhost:8081 | `WEB_PORT` |
+| `frontend/` | React compilado y servido con nginx | `docker compose up -d --build` | http://localhost:8081 | `WEB_PORT`, `VITE_API_URL` |
 
 Los puertos son poco comunes a propósito (la base usa 3307 y no 3306). Para cambiar un puerto o una
 credencial, se copia el `.env.example` de la carpeta como `.env` (no se versiona). Si se cambia
@@ -704,7 +714,7 @@ cliente ──JSON──▶ controller ──▶ service ──▶ repository �
 | Usuarios | `GET /api/v1/usuarios`, `GET /api/v1/usuarios/{run}` | 200 | Admin |
 | | `POST /api/v1/usuarios`, `PUT /api/v1/usuarios/{run}` | 201 al crear, 200 al editar | Admin |
 | | `DELETE /api/v1/usuarios/{run}` | 204 (409 si tiene boletas) | Admin |
-| | `GET /api/v1/usuarios/me` | 200 con la cuenta del token | Cualquier rol con sesión |
+| | `GET /api/v1/usuarios/me`, `PUT /api/v1/usuarios/me` | 200 con la cuenta del token; el `PUT` edita sus datos y, con `contrasenaActual` y `contrasenaNueva`, la contraseña (400 si la actual no coincide, 409 si el correo es de otra cuenta; nunca cambia el RUN ni el rol) | Cualquier rol con sesión |
 | Boletas | `GET /api/v1/boletas` (opcional `?usuario=123456785`) | 200 | Admin y Logística (todas); Cliente (solo las suyas, ignora `?usuario=`) |
 | | `GET /api/v1/boletas/{numero}` | 200 (404 si no existe o no es del cliente) | Admin y Logística; Cliente solo la suya |
 | | `POST /api/v1/boletas` | 201 (404 si falta un producto, 409 sin stock) | Pública; con token, a nombre de la cuenta |
@@ -784,7 +794,7 @@ correo de `duoc.cl`, `profesor.duoc.cl` o `gmail.com` y contraseña de 4–10.
 - `JWT_SECRET` tiene un valor de desarrollo; en producción debe ser otro, de al menos 32 caracteres.
 - `ddl-auto: update` modifica las tablas solo en desarrollo; no hay migraciones.
 - Faltan la compatibilidad de componentes y los blogs del modelo completo.
-- Las 117 pruebas no usan MariaDB. La mayoría son unitarias (Mockito y MockMvc); las de
+- Las 122 pruebas no usan MariaDB. La mayoría son unitarias (Mockito y MockMvc); las de
   `SeguridadWebTest` levantan el filtro de seguridad real con tokens reales para recorrer las reglas
   de acceso por rol, y `SwaggerTest` arranca la aplicación completa con H2 en memoria (solo en pruebas,
   no entra en la imagen) para revisar la especificación OpenAPI y recorrer login → token → consulta.
@@ -811,9 +821,9 @@ CRUD de categorías, productos y usuarios.
 | IE3.1.1 Backend y base de datos | 8 % | CRUD de categorías, productos y usuarios, y boletas con detalle y compra transaccional (sección 12.3), sobre MariaDB | Nada pendiente |
 | IE3.2.1 API REST y Swagger | 8 % | Endpoints CRUD, de boletas y de auth versionados en `/api/v1/...`, documentados en Swagger UI (12.6) | Nada pendiente |
 | IE3.3.1 Autenticación JWT y roles | 6 % | Login, registro, JWT de acceso y renovación, filtro de seguridad y permisos por rol (12.5) | Nada pendiente en el backend |
-| IE3.2.2 Integración backend-frontend | 6 % | CORS hacia `http://localhost:5173` y `:8081` | Llamadas `fetch`/`axios` desde React. **Frontend**, fuera de este apartado |
-| IE3.3.2 Sesión en el frontend | 6 % | Sesión simulada en `sessionStorage` | Guardar el token y mantenerlo al recargar. **Frontend** |
-| IE3.3.3 Restricciones en el frontend | 6 % | `RutaProtegida` por rol simulado | Basarlo en el rol del token. **Frontend** |
+| IE3.2.2 Integración backend-frontend | 6 % | `fetch` desde React con `src/services/` para catálogo, usuarios, boletas, registro, login y compra (12.8) | Nada pendiente |
+| IE3.3.2 Sesión en el frontend | 6 % | Tokens JWT en `sessionStorage`; recargar mantiene la sesión y el token se renueva solo (12.8) | Nada pendiente |
+| IE3.3.3 Restricciones en el frontend | 6 % | `RutaProtegida` según el rol de la sesión (el del token) y la API vuelve a comprobarlo (12.8) | Nada pendiente |
 
 Los indicadores de la presentación (IE3.1.2, 3.2.3, 3.2.4, 3.3.4, 3.3.5 y 3.3.6, 60 % en total)
 piden explicar lo mismo de forma individual.
@@ -882,6 +892,7 @@ Roles: Admin (`ADMIN`), Logística (`LOGISTICA`, el «Vendedor» del enunciado) 
 | `GET /usuarios`, `/usuarios/{run}` | Lista o detalla usuarios | — | 200, 404 | Privada | Admin |
 | `POST`, `PUT`, `DELETE /usuarios…` | Mantenedor de usuarios | `UsuarioRequest` | 201/200/204, 400, 404, 409 | Privada | Admin |
 | `GET /usuarios/me` | Perfil de la cuenta en sesión | — | 200, 401 | Privada | Todos |
+| `PUT /usuarios/me` | Edita la cuenta en sesión (y su contraseña) | `PerfilRequest` | 200, 400, 401, 409 | Privada | Todos |
 | `GET /boletas` | Lista las boletas | — | 200, 401, 403 | Privada | Admin y Logística (todas), Cliente (las suyas) |
 | `GET /boletas/{numero}` | Detalle con neto, IVA y total | — | 200, 401, 404 | Privada | Admin y Logística; Cliente solo la suya |
 | `POST /boletas` | Registra la compra (12.3) | Comprador, entrega, medio de pago y líneas `{sku, cantidad}` (sin RUN: sale del token) | 201, 400, 409 (sin stock) | Pública, con token opcional (con él, queda a nombre de la cuenta) | — |
@@ -933,4 +944,31 @@ arranca la aplicación con H2 y comprueba que toda ruta esté documentada, con r
 4. ~~Spring Security, JWT y permisos por rol.~~ Hecho.
 5. ~~Swagger.~~ Hecho.
 6. ~~Pruebas.~~ Hechas.
-7. Documentos de la sección 12.1.
+7. ~~Integración del frontend con la API.~~ Hecha (12.8), con `PUT /usuarios/me` para el perfil.
+8. Documentos de la sección 12.1.
+
+### 12.8 Integración del frontend con la API
+
+- **Cliente HTTP** (`src/services/api.js`): `fetch` con la URL base `VITE_API_URL` (por defecto
+  `http://localhost:8080/api/v1`; en Docker es un `ARG` del `Dockerfile`, así que cambiarla exige reconstruir la
+  imagen). Agrega `Authorization: Bearer`, convierte los errores a `{ ok: false, estado, mensaje }` (un 400 junta
+  el mensaje de cada campo) y nunca lanza.
+- **Sesión**: `POST /auth/login` y luego `GET /usuarios/me` (el login no trae apellidos ni correo). Los tokens
+  quedan en `sessionStorage["sesion"]`: recargar mantiene la sesión y cerrar la pestaña la termina. Ante un 401 el
+  cliente renueva el token **una vez** (`POST /auth/refresh`, compartido si varias llamadas fallan a la vez) y repite
+  la llamada; si no se puede, borra la sesión y la interfaz vuelve al inicio de sesión. Un 403 no cierra la sesión.
+- **Roles**: `RutaProtegida` y los menús usan `sesion.rol` (el de `TokenResponse`), pero quien manda es la API: un
+  administrador ve todo; Logística solo lee productos y boletas (no pide `GET /usuarios`; el nombre del cliente sale
+  de la boleta); un Cliente ve solo sus boletas.
+- **Datos**: `data/datos.js` guarda en memoria lo que entrega la API, con la forma que ya usaba la interfaz
+  (`adaptadores.js` traduce `usuario`→`cliente`, `detalles`→`itemsOrden`, `""`↔`null`, y deduce la región de la
+  comuna). Carga el catálogo al abrir la app y las boletas (y, para un administrador, los usuarios) al iniciar sesión.
+  Si la API no responde, la app muestra un aviso con «Reintentar».
+- **Compra**: `POST /boletas` con `{nombre, correo, direccion, comuna, entrega, medioPago, lineas}`; el servidor
+  calcula precios, envío y total, descuenta el stock y toma la cuenta del token. La pasarela de pago sigue simulada
+  en el cliente. Un invitado no puede consultar su boleta después (`GET /boletas` exige sesión), así que se muestra
+  la que devolvió la compra y se guarda en `sessionStorage["ultimaBoleta"]`.
+- **Perfil**: `GET` y `PUT /usuarios/me` (datos propios y cambio de contraseña con la actual; nunca RUN ni rol).
+  Al editar un usuario como administrador hay que escribir una contraseña nueva: la API no entrega la actual.
+- **Datos distintos**: la tienda ya no usa el catálogo de `semillas.js` sino el que carga `CargaInicial` del backend
+  (9 productos y 9 categorías).

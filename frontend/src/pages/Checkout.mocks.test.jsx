@@ -8,7 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router";
 import { guardarCarrito } from "../context/carrito.js";
 import { autorizarPago } from "../logic/pago.js";
-import { limpiarAlmacenamiento, renderConProviders } from "../testUtils.jsx";
+import { limpiarAlmacenamiento, renderConProviders, sesionDe } from "../testUtils.jsx";
 import Checkout from "./Checkout.jsx";
 
 // El mock conserva la implementacion real por defecto y se pisa por prueba.
@@ -17,7 +17,7 @@ vi.mock("../logic/pago.js", async (importOriginal) => {
 	return { ...original, autorizarPago: vi.fn(original.autorizarPago) };
 });
 
-const CAMILA = { run: "123456785", nombre: "Camila", apellidos: "Soto Vera", correo: "camila@gmail.com", rol: "CLIENTE" };
+const CAMILA = sesionDe({ run: "123456785", nombre: "Camila", apellidos: "Soto Vera", correo: "camila@gmail.com", tipoUsuario: "CLIENTE" });
 
 function Destino() {
 	const { pathname } = useLocation();
@@ -41,13 +41,13 @@ describe("Checkout con la pasarela mockeada", () => {
 			{ ruta: "/checkout", sesion: CAMILA },
 		);
 
-		await userEvent.type(screen.getByLabelText(/^Numero de la tarjeta/), "4242424242424242");
+		await userEvent.type(await screen.findByLabelText(/^Numero de la tarjeta/), "4242424242424242");
 		await userEvent.type(screen.getByLabelText(/^Vencimiento/), "1299");
 		await userEvent.type(screen.getByLabelText(/^Codigo de seguridad/), "123");
 		await userEvent.click(screen.getByRole("button", { name: "Pagar $29.980" }));
 
 		expect(autorizarPago).toHaveBeenCalledOnce();
 		expect(autorizarPago).toHaveBeenCalledWith({ numero: "4242 4242 4242 4242", monto: 29980 });
-		expect(screen.getByTestId("destino")).toHaveTextContent(/^\/pago\/correcto\/ORD-/);
+		expect(await screen.findByTestId("destino")).toHaveTextContent(/^\/pago\/correcto\/ORD-/);
 	});
 });

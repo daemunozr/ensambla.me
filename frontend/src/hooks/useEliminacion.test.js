@@ -28,24 +28,24 @@ describe("useEliminacion", () => {
 		expect(eliminar).not.toHaveBeenCalled();
 	});
 
-	it("confirmar elimina el registro pendiente y avisa del exito", () => {
-		const eliminar = vi.fn().mockReturnValue({ ok: true, mensaje: "Se elimino." });
+	it("confirmar elimina el registro pendiente y avisa del exito", async () => {
+		const eliminar = vi.fn().mockResolvedValue({ ok: true, mensaje: "Se elimino." });
 		const { result } = renderHook(() => useEliminacion(eliminar));
 
 		act(() => result.current.pedir({ sku: "A" }));
-		act(() => result.current.confirmar());
+		await act(async () => result.current.confirmar());
 
 		expect(eliminar).toHaveBeenCalledWith({ sku: "A" });
 		expect(result.current.aviso).toEqual({ tipo: "success", contenido: "Se elimino." });
 		expect(result.current.pendiente).toBeNull();
 	});
 
-	it("confirmar avisa del rechazo cuando no se pudo eliminar", () => {
-		const eliminar = vi.fn().mockReturnValue({ ok: false, mensaje: "Tiene ordenes." });
+	it("confirmar avisa del rechazo cuando no se pudo eliminar", async () => {
+		const eliminar = vi.fn().mockResolvedValue({ ok: false, mensaje: "Tiene ordenes." });
 		const { result } = renderHook(() => useEliminacion(eliminar));
 
 		act(() => result.current.pedir({ run: "1" }));
-		act(() => result.current.confirmar());
+		await act(async () => result.current.confirmar());
 
 		expect(result.current.aviso).toEqual({ tipo: "danger", contenido: "Tiene ordenes." });
 	});

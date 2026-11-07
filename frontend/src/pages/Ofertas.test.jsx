@@ -4,6 +4,7 @@ import { productos } from "../data/datos.js";
 import { enOferta } from "../logic/precios.js";
 import { limpiarAlmacenamiento, renderConProviders } from "../testUtils.jsx";
 import Ofertas from "./Ofertas.jsx";
+import { guardarDatos } from "../testing/apiFalsa.js";
 
 function montar(ruta = "/ofertas") {
 	return renderConProviders(
@@ -46,7 +47,7 @@ describe("Ofertas", () => {
 	});
 
 	it("sin productos en oferta lo avisa y lleva al catalogo", () => {
-		window.sessionStorage.setItem("productos", JSON.stringify(productos().map((p) => ({ ...p, descuento: 0 }))));
+		guardarDatos("productos", productos().map((p) => ({ ...p, descuento: 0 })));
 		montar();
 
 		expect(screen.getByText("Por ahora no hay productos en oferta.")).toBeInTheDocument();

@@ -7,6 +7,7 @@ import { enStockCritico } from "../../logic/stock.js";
 import { precio } from "../../utils/formato.js";
 import { SESION_ADMIN, limpiarAlmacenamiento, renderConProviders } from "../../testUtils.jsx";
 import Reportes from "./Reportes.jsx";
+import { guardarDatos } from "../../testing/apiFalsa.js";
 
 const montar = () =>
 	renderConProviders(
@@ -139,7 +140,7 @@ describe("admin / Reportes", () => {
 	});
 
 	it("un producto vendido que ya no esta en el catalogo se agrupa como «Sin categoria»", () => {
-		window.sessionStorage.setItem("productos", JSON.stringify(productos().filter((p) => p.sku !== "GPU-RTX4060")));
+		guardarDatos("productos", productos().filter((p) => p.sku !== "GPU-RTX4060"));
 		montar();
 
 		expect(within(seccion("Ventas por categoria")).getByText("Sin categoria")).toBeInTheDocument();

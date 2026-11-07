@@ -16,17 +16,17 @@ describe("App", () => {
 		window.localStorage.clear();
 	});
 
-	it("muestra el inicio en la ruta /", () => {
+	it("muestra el inicio en la ruta /", async () => {
 		renderizarEn("/");
 
-		expect(screen.getByRole("heading", { level: 1, name: /Arma tu PC gamer/ })).toBeInTheDocument();
+		expect(await screen.findByRole("heading", { level: 1, name: /Arma tu PC gamer/ })).toBeInTheDocument();
 		expect(screen.queryByText("Pagina no encontrada")).not.toBeInTheDocument();
 	});
 
-	it("muestra la pagina no encontrada en una ruta desconocida", () => {
+	it("muestra la pagina no encontrada en una ruta desconocida", async () => {
 		renderizarEn("/no-existe");
 
-		expect(screen.getByRole("heading", { level: 1, name: "Pagina no encontrada" })).toBeInTheDocument();
+		expect(await screen.findByRole("heading", { level: 1, name: "Pagina no encontrada" })).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "Volver al inicio" })).toHaveAttribute("href", "/");
 	});
 });

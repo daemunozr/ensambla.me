@@ -24,10 +24,11 @@ import ProductosAdmin from "./pages/admin/Productos.jsx";
 import FormularioProducto from "./pages/admin/FormularioProducto.jsx";
 import FormularioUsuario from "./pages/admin/FormularioUsuario.jsx";
 import Usuario from "./pages/admin/Usuario.jsx";
+import { baseDeDatos, guardarDatos, llamadas } from "./testing/apiFalsa.js";
 
 const CAMILA = "123456785";
 
-const guardar = (clave, lista) => window.sessionStorage.setItem(clave, JSON.stringify(lista));
+const guardar = guardarDatos;
 const conCambios = (lista, clave, valor, cambios) => lista.map((registro) => (registro[clave] === valor ? { ...registro, ...cambios } : registro));
 const sinCampos = (registro, ...campos) => Object.fromEntries(Object.entries(registro).filter(([campo]) => !campos.includes(campo)));
 
@@ -122,14 +123,14 @@ describe("Checkout", () => {
 		expect(screen.getByLabelText(/Retiro en tienda/)).toBeChecked();
 	});
 
-	it("una cuenta con una comuna que ya no existe parte sin region", () => {
+	it("una cuenta con una comuna que ya no existe parte sin region", async () => {
 		guardarCarrito([{ linea: 1, producto: "PER-MOUSE-RGB", cantidad: 1, armado: null }]);
 		const sesion = sesionDe(usuario(CAMILA));
 		guardar("usuarios", conCambios(usuarios(), "run", CAMILA, { comuna: "XX-99" }));
 
 		montar(sesion);
 
-		expect(screen.getByLabelText(/Region/)).toHaveValue("");
+		expect(await screen.findByLabelText(/Region/)).toHaveValue("");
 	});
 
 	it("un invitado confirma un pedido sin costo y la orden queda sin cliente ni pago", async () => {
@@ -140,19 +141,26 @@ describe("Checkout", () => {
 		await userEvent.click(screen.getByLabelText(/Retiro en tienda/));
 		await userEvent.click(screen.getByRole("button", { name: "Confirmar pedido" }));
 
-		expect(screen.getByText("Pagina de pago")).toBeInTheDocument();
-		expect(ordenes().at(-1)).toMatchObject({ cliente: "", medioPago: "Sin pago", entrega: "RETIRO" });
+		expect(await screen.findByText("Pagina de pago")).toBeInTheDocument();
+		expect(baseDeDatos().ordenes.at(-1)).toMatchObject({ cliente: "", medioPago: "Sin pago", entrega: "RETIRO" });
 	});
 
-	it("si la orden no se puede registrar muestra el motivo y no sale de la pagina", async () => {
+	it("si el servidor no registra la compra muestra el motivo y no sale de la pagina", async () => {
 		guardarCarrito([{ linea: 1, producto: "PER-MOUSEPAD", cantidad: 1, armado: null }]);
+		const api = globalThis.fetch;
+		vi.stubGlobal("fetch", (url, opciones) =>
+			opciones?.method === "POST" && String(url).endsWith("/boletas")
+				? Promise.resolve(new Response(JSON.stringify({ estado: 500, mensaje: "Error interno" }), { status: 500 }))
+				: api(url, opciones),
+		);
 		montar(SESION_CLIENTE);
+		await screen.findByLabelText(/Retiro en tienda/);
 
 		await llenarEnvio();
 		await userEvent.click(screen.getByLabelText(/Retiro en tienda/));
 		await userEvent.click(screen.getByRole("button", { name: "Confirmar pedido" }));
 
-		expect(screen.getByText("La cuenta con la que compras ya no existe.")).toBeInTheDocument();
+		expect(await screen.findByText("Error interno")).toBeInTheDocument();
 		expect(screen.queryByText("Pagina de pago")).not.toBeInTheDocument();
 	});
 });
@@ -163,19 +171,20 @@ describe("Perfil con una cuenta incompleta", () => {
 		guardar("usuarios", usuarios().map((u) => (u.run === CAMILA ? sinCampos(u, "fechaNacimiento") : u)));
 		renderConProviders(<Perfil />, { sesion });
 
-		await userEvent.click(screen.getByRole("button", { name: "Guardar mis datos" }));
+		await userEvent.click(await screen.findByRole("button", { name: "Guardar mis datos" }));
 
-		expect(screen.getByText("Tus datos se guardaron correctamente.")).toBeInTheDocument();
-		expect(usuario(CAMILA).fechaNacimiento).toBe("");
+		expect(await screen.findByText("Tus datos se guardaron correctamente.")).toBeInTheDocument();
+		expect(llamadas.find((l) => l.metodo === "PUT").cuerpo.fechaNacimiento).toBeNull();
+		expect(baseDeDatos().usuarios.find((u) => u.run === CAMILA).fechaNacimiento).toBe("");
 	});
 
-	it("una comuna que ya no existe deja la region sin escoger", () => {
+	it("una comuna que ya no existe deja la region sin escoger", async () => {
 		const sesion = sesionDe(usuario(CAMILA));
 		guardar("usuarios", conCambios(usuarios(), "run", CAMILA, { comuna: "XX-99" }));
 
 		renderConProviders(<Perfil />, { sesion });
 
-		expect(screen.getByLabelText(/Region/)).toHaveValue("");
+		expect(await screen.findByLabelText(/Region/)).toHaveValue("");
 	});
 
 	it("si la cuenta no se puede actualizar al cambiar la contrasena, muestra el motivo", async () => {
@@ -183,12 +192,12 @@ describe("Perfil con una cuenta incompleta", () => {
 		guardar("usuarios", conCambios(usuarios(), "run", CAMILA, { correo: "admin@duoc.cl" }));
 		renderConProviders(<Perfil />, { sesion });
 
-		await userEvent.type(screen.getByLabelText(/^Contrasena actual/), "cliente123");
+		await userEvent.type(await screen.findByLabelText(/^Contrasena actual/), "cliente123");
 		await userEvent.type(screen.getByLabelText(/^Contrasena nueva/), "nueva1234");
 		await userEvent.type(screen.getByLabelText(/^Repite la contrasena nueva/), "nueva1234");
 		await userEvent.click(screen.getByRole("button", { name: "Cambiar contrasena" }));
 
-		expect(screen.getByText("El correo admin@duoc.cl ya esta usado por otro usuario.")).toBeInTheDocument();
+		expect(await screen.findByText("Ya existe un usuario con el correo admin@duoc.cl.")).toBeInTheDocument();
 	});
 });
 
@@ -240,7 +249,7 @@ describe("panel de administracion con registros incompletos", () => {
 		enPanel(<FormularioProducto />, "/admin/productos/CPU-R5-7600/editar", "/admin/productos/:sku/editar");
 
 		expect(screen.getByLabelText(/^Video/)).toHaveValue("");
-		expect(producto("CPU-R5-7600").video).toBeUndefined();
+		expect(producto("CPU-R5-7600").video).toBe("");
 	});
 
 	it("editar un usuario sin fecha de nacimiento ni comuna conocida deja ambos vacios", () => {

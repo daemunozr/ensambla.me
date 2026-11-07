@@ -4,6 +4,7 @@ import { producto, productos } from "../../data/datos.js";
 import { productosCriticos } from "../../logic/stock.js";
 import { SESION_ADMIN, SESION_LOGISTICA, limpiarAlmacenamiento, renderConProviders } from "../../testUtils.jsx";
 import Criticos from "./Criticos.jsx";
+import { guardarDatos } from "../../testing/apiFalsa.js";
 
 function montar(sesion = SESION_ADMIN) {
 	return renderConProviders(
@@ -15,10 +16,7 @@ function montar(sesion = SESION_ADMIN) {
 }
 const skus = () => screen.queryAllByRole("row").slice(1).map((f) => within(f).getByRole("code").textContent);
 const sembrar = (cambios) =>
-	window.sessionStorage.setItem(
-		"productos",
-		JSON.stringify(productos().map((p) => ({ ...p, stock: 50, stockCritico: 5, ...cambios[p.sku] }))),
-	);
+	guardarDatos("productos", productos().map((p) => ({ ...p, stock: 50, stockCritico: 5, ...cambios[p.sku] })));
 
 describe("admin / Criticos", () => {
 	beforeEach(limpiarAlmacenamiento);

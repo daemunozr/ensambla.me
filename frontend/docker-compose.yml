@@ -1,13 +1,18 @@
 # Frontend React + Vite compilado y servido con nginx. La imagen se compila dentro de Docker (Node 22
 # incluido): no hace falta tener Node instalado. No depende de database/ ni de backend/.
-# Para cambiar el puerto, crea un .env junto a este archivo (ver .env.example).
+# La API se llama desde el navegador (por defecto http://localhost:8080/api/v1), no desde el contenedor.
+# Para cambiar el puerto o la URL de la API, crea un .env junto a este archivo (ver .env.example).
 #
 #   docker compose up -d --build    construye la imagen y levanta la app (http://localhost:8081)
 #   docker compose down             la detiene
 name: ensamblame-frontend
 services:
   frontend:
-    build: .
+    build:
+      context: .
+      args:
+        # Se escribe en el codigo al compilar: si cambia, hay que reconstruir con --build.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8081}:80"

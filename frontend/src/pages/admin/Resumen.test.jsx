@@ -5,6 +5,7 @@ import { enStockCritico } from "../../logic/stock.js";
 import { precio } from "../../utils/formato.js";
 import { SESION_ADMIN, limpiarAlmacenamiento, renderConProviders } from "../../testUtils.jsx";
 import Resumen from "./Resumen.jsx";
+import { guardarDatos } from "../../testing/apiFalsa.js";
 
 const montar = () =>
 	renderConProviders(
@@ -31,7 +32,7 @@ describe("admin / Resumen", () => {
 	});
 
 	it("los indicadores se recalculan con los datos de la sesion", () => {
-		window.sessionStorage.setItem("ordenes", "[]");
+		guardarDatos("ordenes", []);
 		montar();
 
 		expect(indicador("Ordenes")).toHaveTextContent(`0${precio(0)} en total`);

@@ -2,6 +2,7 @@ import { screen } from "@testing-library/react";
 import { categorias } from "../../data/datos.js";
 import { limpiarAlmacenamiento, renderConProviders } from "../../testUtils.jsx";
 import Aside from "./Aside.jsx";
+import { guardarDatos } from "../../testing/apiFalsa.js";
 
 describe("Aside", () => {
 	beforeEach(limpiarAlmacenamiento);
@@ -35,7 +36,7 @@ describe("Aside", () => {
 	});
 
 	it("incluye una categoria nueva sin tocar el componente", () => {
-		window.sessionStorage.setItem("categorias", JSON.stringify([...categorias(), { codigo: "sillas", nombre: "Sillas gamer", orden: null }]));
+		guardarDatos("categorias", [...categorias(), { codigo: "sillas", nombre: "Sillas gamer", orden: null }]);
 		renderConProviders(<Aside />);
 
 		expect(screen.getByRole("link", { name: "Sillas gamer" })).toHaveAttribute("href", "/productos?categoria=sillas");

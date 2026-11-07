@@ -4,6 +4,7 @@ import { Route, Routes } from "react-router";
 import { usuario, usuarios } from "../../data/datos.js";
 import { SESION_ADMIN, limpiarAlmacenamiento, renderConProviders, sesionDe } from "../../testUtils.jsx";
 import UsuariosAdmin from "./Usuarios.jsx";
+import { guardarDatos } from "../../testing/apiFalsa.js";
 
 const ADMIN = () => sesionDe(usuario("190110222"));
 
@@ -87,7 +88,7 @@ describe("admin / Usuarios", () => {
 		});
 
 		it("confirmar elimina a un usuario sin ordenes y quita su fila", async () => {
-			window.sessionStorage.setItem("ordenes", "[]");
+			guardarDatos("ordenes", []);
 			montar();
 
 			await userEvent.click(within(filaDe("98765433")).getByRole("button", { name: "Eliminar" }));
@@ -111,7 +112,7 @@ describe("admin / Usuarios", () => {
 	});
 
 	it("sin usuarios muestra que no hay cargados", () => {
-		window.sessionStorage.setItem("usuarios", "[]");
+		guardarDatos("usuarios", []);
 		montar(SESION_ADMIN);
 
 		expect(screen.getByText("No hay usuarios cargados.")).toBeInTheDocument();

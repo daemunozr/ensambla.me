@@ -4,6 +4,7 @@ import { Route, Routes } from "react-router";
 import { ordenes } from "../../data/datos.js";
 import { SESION_ADMIN, SESION_LOGISTICA, limpiarAlmacenamiento, renderConProviders } from "../../testUtils.jsx";
 import OrdenesAdmin from "./Ordenes.jsx";
+import { guardarDatos } from "../../testing/apiFalsa.js";
 
 function montar(sesion = SESION_ADMIN) {
 	return renderConProviders(
@@ -84,7 +85,7 @@ describe("admin / Ordenes", () => {
 	});
 
 	it("sin ordenes muestra que no hay registradas", () => {
-		window.sessionStorage.setItem("ordenes", "[]");
+		guardarDatos("ordenes", []);
 		montar();
 
 		expect(screen.getByText("No hay ordenes registradas.")).toBeInTheDocument();

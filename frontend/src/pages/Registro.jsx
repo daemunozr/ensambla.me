@@ -35,14 +35,14 @@ const DEFINICION = {
 /** Registro de un nuevo cliente. El rol no se escoge aqui: siempre es Cliente (RF-01). */
 export default function Registro() {
 	useTitulo("Registro — Ensambla.me");
-	const { crearUsuario } = useDatos();
+	const { registrarCuenta } = useDatos();
 	const formulario = useFormulario(INICIAL, DEFINICION);
 	const { registrar, estado, errores, enviar, reiniciar } = formulario;
 	const [aviso, setAviso] = useState(null);
 
-	const alEnviar = (datos) => {
-		// La unicidad del RUN y del correo la aplica la capa de datos.
-		const resultado = crearUsuario({
+	const alEnviar = async (datos) => {
+		// La unicidad del RUN y del correo la aplica el servidor (409).
+		const resultado = await registrarCuenta({
 			run: datos.run,
 			nombre: datos.nombre,
 			apellidos: datos.apellidos,
@@ -51,7 +51,6 @@ export default function Registro() {
 			fechaNacimiento: datos.fechaNacimiento || "",
 			comuna: datos.comuna,
 			direccion: datos.direccion,
-			tipoUsuario: "CLIENTE",
 		});
 		if (!resultado.ok) {
 			setAviso({ tipo: "danger", contenido: resultado.mensaje });

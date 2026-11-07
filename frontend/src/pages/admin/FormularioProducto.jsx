@@ -49,7 +49,7 @@ function Formulario({ sku }) {
 	);
 	useTitulo(existente ? `Editar ${existente.nombre} — Panel Ensambla.me` : "Ficha de producto — Panel Ensambla.me");
 
-	const alEnviar = (datos) => {
+	const alEnviar = async (datos) => {
 		const registro = {
 			sku: datos.sku,
 			nombre: datos.nombre,
@@ -63,8 +63,8 @@ function Formulario({ sku }) {
 			video: datos.video,
 		};
 
-		// La capa de datos rechaza un SKU repetido al crear.
-		const resultado = existente ? actualizarProducto(existente.sku, registro) : crearProducto(registro);
+		// El servidor rechaza un SKU repetido al crear.
+		const resultado = existente ? await actualizarProducto(existente.sku, registro) : await crearProducto(registro);
 		if (!resultado.ok) {
 			setAviso({ tipo: "danger", contenido: resultado.mensaje });
 			return;

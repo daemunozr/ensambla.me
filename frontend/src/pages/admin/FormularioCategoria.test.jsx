@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router";
 import { categoria, categorias } from "../../data/datos.js";
@@ -81,8 +81,8 @@ describe("admin / FormularioCategoria", () => {
 			await userEvent.type(campo("Nombre"), "Monitores");
 			await guardar();
 
-			expect(categoria("monitores")).toEqual({ codigo: "monitores", nombre: "Monitores" });
-			expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/categorias?guardada=Monitores");
+			await waitFor(() => expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/categorias?guardada=Monitores"));
+			expect(categoria("monitores")).toEqual({ codigo: "monitores", nombre: "Monitores", orden: null });
 		});
 
 		it("un codigo repetido se rechaza (RF-25 CA2)", async () => {
@@ -92,7 +92,7 @@ describe("admin / FormularioCategoria", () => {
 			await userEvent.type(campo("Nombre"), "Otra CPU");
 			await guardar();
 
-			expect(screen.getByRole("alert")).toHaveTextContent("Ya existe una categoria con el codigo cpu.");
+			expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe una categoria con el codigo cpu.");
 			expect(categoria("cpu").nombre).toBe("Procesadores (CPU)");
 			expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/categorias/nueva");
 		});
@@ -123,8 +123,8 @@ describe("admin / FormularioCategoria", () => {
 			await userEvent.type(nombre, "Memorias");
 			await guardar();
 
+			await waitFor(() => expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/categorias?guardada=Memorias"));
 			expect(categoria("ram")).toMatchObject({ nombre: "Memorias", orden: 3 });
-			expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/categorias?guardada=Memorias");
 		});
 
 		it("un codigo que no existe avisa al abrir", () => {

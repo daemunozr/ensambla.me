@@ -2,6 +2,7 @@ import { screen, within } from "@testing-library/react";
 import { producto, productos } from "../data/datos.js";
 import { limpiarAlmacenamiento, renderConProviders } from "../testUtils.jsx";
 import Inicio from "./Inicio.jsx";
+import { guardarDatos } from "../testing/apiFalsa.js";
 
 const DESTACADOS = ["CPU-R7-7800X3D", "GPU-RTX4070S", "MB-X670-ELITE", "RAM-DDR5-32-6000", "SSD-NVME-1TB", "PER-MONITOR-27"];
 
@@ -39,7 +40,7 @@ describe("Inicio", () => {
 
 	it("si desaparecen los destacados, muestra los primeros seis del catalogo", () => {
 		const resto = productos().filter((p) => !DESTACADOS.includes(p.sku));
-		window.sessionStorage.setItem("productos", JSON.stringify(resto));
+		guardarDatos("productos", resto);
 		renderConProviders(<Inicio />);
 
 		const seccion = screen.getByRole("heading", { name: "Productos destacados" }).closest("section");

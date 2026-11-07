@@ -40,6 +40,8 @@ const DEFINICION = {
 const valoresDe = (existente) => ({
 	...VACIO,
 	...existente,
+	// La API nunca entrega la contrasena: al editar se escribe una nueva.
+	contrasena: "",
 	fechaNacimiento: existente.fechaNacimiento ?? "",
 	region: comuna(existente.comuna)?.region ?? "",
 });
@@ -55,7 +57,7 @@ function Formulario({ run }) {
 	);
 	useTitulo(existente ? "Editar usuario — Panel Ensambla.me" : "Ficha de usuario — Panel Ensambla.me");
 
-	const alEnviar = (datos) => {
+	const alEnviar = async (datos) => {
 		const registro = {
 			run: datos.run,
 			nombre: datos.nombre,
@@ -68,8 +70,8 @@ function Formulario({ run }) {
 			tipoUsuario: datos.tipoUsuario,
 		};
 
-		// La capa de datos rechaza un RUN repetido y un correo usado por otro usuario.
-		const resultado = existente ? actualizarUsuario(existente.run, registro) : crearUsuario(registro);
+		// El servidor rechaza un RUN repetido y un correo usado por otro usuario.
+		const resultado = existente ? await actualizarUsuario(existente.run, registro) : await crearUsuario(registro);
 		if (!resultado.ok) {
 			setAviso({ tipo: "danger", contenido: resultado.mensaje });
 			return;
@@ -140,7 +142,7 @@ function Formulario({ run }) {
 							type="password"
 							maxLength={10}
 							autoComplete="new-password"
-							sugerencia="Entre 4 y 10 caracteres."
+							sugerencia={existente ? "Escribe la contrasena nueva (4 a 10 caracteres); la actual no se puede ver." : "Entre 4 y 10 caracteres."}
 							{...props("contrasena")}
 						/>
 						{/* Exactamente los tres roles; este campo no existe en el registro publico (RF-11 CA3). */}

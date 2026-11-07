@@ -12,12 +12,13 @@ import Nav from "./components/layout/Nav.jsx";
 import { useDatos } from "./context/datos.js";
 import { useSesion } from "./context/sesion.js";
 import SesionProvider from "./context/SesionProvider.jsx";
-import { itemOrden, itemsDeOrden, nombreRegionDeComuna, orden, ordenes, totalOrden } from "./data/datos.js";
+import { itemsDeOrden, nombreRegionDeComuna, orden, ordenes, totalOrden } from "./data/datos.js";
 import { useFormulario } from "./hooks/useFormulario.js";
 import { agregarArmado, agregarProducto, cambiarCantidad } from "./logic/carrito.js";
 import { topClientes } from "./logic/reportes.js";
 import { reglas } from "./utils/validaciones.js";
 import { limpiarAlmacenamiento, renderConProviders } from "./testUtils.jsx";
+import { guardarDatos } from "./testing/apiFalsa.js";
 
 beforeEach(limpiarAlmacenamiento);
 afterEach(() => vi.restoreAllMocks());
@@ -47,10 +48,7 @@ describe("ModalConfirmacion con otras teclas", () => {
 
 describe("TablaOrdenes con un producto que ya no existe", () => {
 	it("muestra el SKU en lugar del nombre", () => {
-		window.sessionStorage.setItem(
-			"itemsOrden",
-			JSON.stringify([{ orden: "ORD-2026-0001", producto: "SKU-FANTASMA", cantidad: 2, precioUnitario: 1000 }]),
-		);
+		guardarDatos("itemsOrden", [{ orden: "ORD-2026-0001", producto: "SKU-FANTASMA", cantidad: 2, precioUnitario: 1000 }]);
 
 		render(
 			<MemoryRouter>
@@ -88,11 +86,11 @@ describe("SesionProvider con el almacenamiento fallando", () => {
 			wrapper: ({ children }) => <SesionProvider>{children}</SesionProvider>,
 		});
 
-	it("cerrar la sesion tolera que no se pueda limpiar el almacenamiento", () => {
+	it("cerrar la sesion tolera que no se pueda limpiar el almacenamiento", async () => {
 		const error = vi.spyOn(console, "error").mockImplementation(() => {});
 		const { result } = montar();
-		act(() => {
-			result.current.iniciar("admin@duoc.cl", "admin1234");
+		await act(async () => {
+			await result.current.iniciar("admin@duoc.cl", "admin1234");
 		});
 		vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
 			throw new Error("bloqueado");
@@ -104,17 +102,20 @@ describe("SesionProvider con el almacenamiento fallando", () => {
 		expect(error).toHaveBeenCalledWith("sesion: no se pudo limpiar la sesion", expect.any(Error));
 	});
 
-	it("actualizar la sesion tolera que no se pueda guardar en el almacenamiento", () => {
+	it("actualizar el perfil tolera que no se pueda guardar la sesion en el almacenamiento", async () => {
 		const error = vi.spyOn(console, "error").mockImplementation(() => {});
 		const { result } = montar();
-		act(() => {
-			result.current.iniciar("admin@duoc.cl", "admin1234");
+		await act(async () => {
+			await result.current.iniciar("admin@duoc.cl", "admin1234");
 		});
+		const cuenta = { run: "190110222", nombre: "Admin", apellidos: "Sistema", correo: "admin@duoc.cl", comuna: "RM-01", direccion: "Calle 1" };
 		vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
 			throw new Error("lleno");
 		});
 
-		act(() => result.current.actualizar({ nombre: "Otro", apellidos: "Nombre", correo: "otro@duoc.cl" }));
+		await act(async () => {
+			await result.current.actualizarPerfil(cuenta, { nombre: "Otro" });
+		});
 
 		expect(result.current.sesion.nombre).toBe("Otro");
 		expect(error).toHaveBeenCalledWith("sesion: no se pudo guardar la sesion", expect.any(Error));
@@ -122,13 +123,6 @@ describe("SesionProvider con el almacenamiento fallando", () => {
 });
 
 describe("datos con referencias que no existen", () => {
-	it("el item de una orden se busca por orden y producto", () => {
-		const primero = itemsDeOrden("ORD-2026-0001")[0];
-
-		expect(itemOrden(`ORD-2026-0001|${primero.producto}`)).toEqual(primero);
-		expect(itemOrden("ORD-2026-0001|SKU-FANTASMA")).toBeUndefined();
-	});
-
 	it("una comuna desconocida no tiene region", () => {
 		expect(nombreRegionDeComuna("XX-99")).toBe("");
 	});

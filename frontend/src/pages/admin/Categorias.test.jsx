@@ -1,9 +1,10 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router";
 import { categoria, categorias, crearCategoria, productos } from "../../data/datos.js";
 import { SESION_ADMIN, limpiarAlmacenamiento, renderConProviders } from "../../testUtils.jsx";
 import CategoriasAdmin from "./Categorias.jsx";
+import { guardarDatos } from "../../testing/apiFalsa.js";
 
 function montar(ruta = "/admin/categorias") {
 	return renderConProviders(
@@ -17,6 +18,13 @@ const filaDe = (codigo) => screen.getByText(codigo, { selector: "code" }).closes
 const eliminar = async (codigo) => {
 	await userEvent.click(within(filaDe(codigo)).getByRole("button", { name: "Eliminar" }));
 	await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Eliminar" }));
+	// La eliminacion llama a la API: el dialogo se cierra cuando responde.
+	await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+};
+// Crea la categoria "sillas" como administrador (las escrituras exigen sesion).
+const crearSillas = async () => {
+	window.sessionStorage.setItem("sesion", JSON.stringify(SESION_ADMIN));
+	await crearCategoria({ codigo: "sillas", nombre: "Sillas gamer" });
 };
 
 describe("admin / Categorias", () => {
@@ -34,8 +42,8 @@ describe("admin / Categorias", () => {
 		expect(within(cpu).getAllByRole("cell")[3]).toHaveTextContent(String(productos().filter((p) => p.categoria === "cpu").length));
 	});
 
-	it("una categoria que no es paso del asistente muestra una raya", () => {
-		crearCategoria({ codigo: "sillas", nombre: "Sillas gamer" });
+	it("una categoria que no es paso del asistente muestra una raya", async () => {
+		await crearSillas();
 		montar();
 
 		expect(within(filaDe("sillas")).getAllByRole("cell")[2]).toHaveTextContent("—");
@@ -58,7 +66,7 @@ describe("admin / Categorias", () => {
 
 	describe("eliminar (RF-25 CA4)", () => {
 		it("pide confirmacion y cancelar no elimina", async () => {
-			crearCategoria({ codigo: "sillas", nombre: "Sillas gamer" });
+			await crearSillas();
 			montar();
 
 			await userEvent.click(within(filaDe("sillas")).getByRole("button", { name: "Eliminar" }));
@@ -70,7 +78,7 @@ describe("admin / Categorias", () => {
 		});
 
 		it("elimina una categoria sin productos que no es paso del asistente", async () => {
-			crearCategoria({ codigo: "sillas", nombre: "Sillas gamer" });
+			await crearSillas();
 			montar();
 
 			await eliminar("sillas");
@@ -91,11 +99,8 @@ describe("admin / Categorias", () => {
 		});
 
 		it("rechaza una categoria con productos", async () => {
-			crearCategoria({ codigo: "sillas", nombre: "Sillas gamer" });
-			window.sessionStorage.setItem(
-				"productos",
-				JSON.stringify([...productos(), { sku: "SILLA-1", nombre: "Silla", precio: 1, stock: 1, categoria: "sillas" }]),
-			);
+			await crearSillas();
+			guardarDatos("productos", [...productos(), { sku: "SILLA-1", nombre: "Silla", precio: 1, stock: 1, categoria: "sillas" }]);
 			montar();
 
 			await eliminar("sillas");
@@ -106,7 +111,7 @@ describe("admin / Categorias", () => {
 	});
 
 	it("sin categorias muestra que no hay cargadas", () => {
-		window.sessionStorage.setItem("categorias", "[]");
+		guardarDatos("categorias", []);
 		montar();
 
 		expect(screen.getByText("No hay categorias cargadas.")).toBeInTheDocument();

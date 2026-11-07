@@ -94,7 +94,7 @@ class SwaggerTest {
     void lasRutasPrivadasDeclaranSeguridadYDocumentan401y403() throws Exception {
         JsonNode paths = especificacion().get("paths");
         for (String[] privada : new String[][] {
-                {"/api/v1/usuarios", "get"}, {"/api/v1/usuarios/me", "get"}, {"/api/v1/usuarios/{run}", "delete"},
+                {"/api/v1/usuarios", "get"}, {"/api/v1/usuarios/me", "get"}, {"/api/v1/usuarios/me", "put"}, {"/api/v1/usuarios/{run}", "delete"},
                 {"/api/v1/categorias", "post"}, {"/api/v1/categorias/{codigo}", "delete"},
                 {"/api/v1/productos", "post"}, {"/api/v1/productos/{sku}", "put"},
                 {"/api/v1/boletas", "get"}, {"/api/v1/boletas/{numero}", "get"}}) {

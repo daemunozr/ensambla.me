@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -80,6 +81,11 @@ class SeguridadWebTest {
             {"nombre": "Camila", "correo": "camila@gmail.com", "direccion": "Irarrazaval 2550",
              "comuna": "RM-04", "entrega": "RETIRO", "medioPago": "Tarjeta",
              "lineas": [{"sku": "PER-KB-MECH", "cantidad": 1}]}
+            """;
+
+    private static final String PERFIL_JSON = """
+            {"nombre": "Camila", "apellidos": "Soto", "correo": "camila@gmail.com", "region": "RM",
+             "comuna": "RM-04", "direccion": "Irarrazaval 2550"}
             """;
 
     // Cabecera "Authorization" con un token de acceso real para ese rol.
@@ -179,6 +185,23 @@ class SeguridadWebTest {
         }
         mockMvc.perform(get("/api/v1/boletas").header("Authorization", como(TipoUsuario.CLIENTE)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void cualquierRolConSesionEditaSuPropiaCuentaPeroNoLasAjenas() throws Exception {
+        for (TipoUsuario rol : TipoUsuario.values()) {
+            mockMvc.perform(put("/api/v1/usuarios/me").header("Authorization", como(rol))
+                    .contentType(MediaType.APPLICATION_JSON).content(PERFIL_JSON))
+                    .andExpect(status().isOk());
+        }
+        mockMvc.perform(put("/api/v1/usuarios/me").contentType(MediaType.APPLICATION_JSON).content(PERFIL_JSON))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/api/v1/usuarios/187654321").header("Authorization", como(TipoUsuario.CLIENTE))
+                .contentType(MediaType.APPLICATION_JSON).content(PERFIL_JSON))
+                .andExpect(status().isForbidden());
+        // Solo GET y PUT quedan abiertos en /usuarios/me.
+        mockMvc.perform(delete("/api/v1/usuarios/me").header("Authorization", como(TipoUsuario.CLIENTE)))
+                .andExpect(status().isForbidden());
     }
 
     // --- Tokens que no sirven (401, incluso en rutas publicas) ---

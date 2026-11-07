@@ -4,6 +4,7 @@ import { ordenesDe, totalOrden, usuario, usuarios } from "../../data/datos.js";
 import { precio } from "../../utils/formato.js";
 import { limpiarAlmacenamiento, renderConProviders, sesionDe } from "../../testUtils.jsx";
 import UsuarioFicha from "./Usuario.jsx";
+import { guardarDatos } from "../../testing/apiFalsa.js";
 
 function montar(run) {
 	return renderConProviders(
@@ -54,7 +55,7 @@ describe("admin / Usuario (ficha)", () => {
 	});
 
 	it("sin fecha de nacimiento muestra una raya", () => {
-		window.sessionStorage.setItem("usuarios", JSON.stringify(usuarios().map((u) => (u.run === "123456785" ? { ...u, fechaNacimiento: "" } : u))));
+		guardarDatos("usuarios", usuarios().map((u) => (u.run === "123456785" ? { ...u, fechaNacimiento: "" } : u)));
 		montar("123456785");
 
 		expect(screen.getByText("Nacimiento").nextElementSibling).toHaveTextContent("—");

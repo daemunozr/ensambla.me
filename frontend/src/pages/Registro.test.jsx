@@ -1,6 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { usuario, usuarios } from "../data/datos.js";
+import { usuarios } from "../data/datos.js";
+import { baseDeDatos, llamadas } from "../testing/apiFalsa.js";
 import { limpiarAlmacenamiento, renderConProviders } from "../testUtils.jsx";
 import Registro from "./Registro.jsx";
 
@@ -79,9 +80,23 @@ describe("Registro", () => {
 
 			await userEvent.click(screen.getByRole("button", { name: "Crear mi cuenta" }));
 
-			expect(usuario("111111111")).toMatchObject({ nombre: "Ana", tipoUsuario: "CLIENTE", correo: "ana@gmail.com" });
-			expect(screen.getByRole("alert")).toHaveTextContent("Cuenta creada para Ana Pinto Diaz. Ya puedes iniciar sesion con ana@gmail.com.");
+			expect(await screen.findByRole("alert")).toHaveTextContent("Cuenta creada para Ana Pinto Diaz. Ya puedes iniciar sesion con ana@gmail.com.");
+			expect(baseDeDatos().usuarios.find((u) => u.run === "111111111")).toMatchObject({ nombre: "Ana", tipoUsuario: "CLIENTE", correo: "ana@gmail.com" });
 			expect(screen.getByRole("link", { name: "iniciar sesion" })).toHaveAttribute("href", "/login");
+		});
+
+		it("envia a POST /auth/registro la region deducida de la comuna, sin tipo de usuario ni sesion", async () => {
+			renderConProviders(<Registro />);
+			await llenar();
+
+			await userEvent.click(screen.getByRole("button", { name: "Crear mi cuenta" }));
+
+			await screen.findByRole("alert");
+			const llamada = llamadas.find((l) => l.ruta === "/auth/registro");
+			expect(llamada.metodo).toBe("POST");
+			expect(llamada.cuerpo).toMatchObject({ run: "111111111", region: "RM", comuna: "RM-01", fechaNacimiento: null });
+			expect(llamada.cuerpo).not.toHaveProperty("tipoUsuario");
+			expect(llamada.autorizacion).toBeNull();
 		});
 
 		it("tras crear la cuenta el formulario queda limpio", async () => {
@@ -90,6 +105,7 @@ describe("Registro", () => {
 
 			await userEvent.click(screen.getByRole("button", { name: "Crear mi cuenta" }));
 
+			await screen.findByRole("alert");
 			expect(campo("RUN")).toHaveValue("");
 			expect(campo("Nombre")).toHaveValue("");
 		});
@@ -101,9 +117,9 @@ describe("Registro", () => {
 
 			await userEvent.click(screen.getByRole("button", { name: "Crear mi cuenta" }));
 
-			expect(screen.getByRole("alert")).toHaveClass("alert-danger");
-			expect(screen.getByRole("alert")).toHaveTextContent("Ya existe un usuario con RUN 123456785.");
-			expect(usuarios()).toHaveLength(antes);
+			expect(await screen.findByRole("alert")).toHaveClass("alert-danger");
+			expect(screen.getByRole("alert")).toHaveTextContent("Ya existe un usuario con el RUN 123456785.");
+			expect(baseDeDatos().usuarios).toHaveLength(antes);
 		});
 
 		it("un correo ya registrado se rechaza (RF-01 CA7)", async () => {
@@ -112,8 +128,8 @@ describe("Registro", () => {
 
 			await userEvent.click(screen.getByRole("button", { name: "Crear mi cuenta" }));
 
-			expect(screen.getByRole("alert")).toHaveTextContent("ya esta usado por otro usuario");
-			expect(usuario("111111111")).toBeUndefined();
+			expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un usuario con el correo camila@gmail.com.");
+			expect(baseDeDatos().usuarios.find((u) => u.run === "111111111")).toBeUndefined();
 		});
 	});
 });

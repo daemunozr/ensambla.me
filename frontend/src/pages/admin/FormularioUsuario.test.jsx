@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router";
 import { usuario, usuarios } from "../../data/datos.js";
@@ -89,8 +89,8 @@ describe("admin / FormularioUsuario", () => {
 
 			await guardar();
 
+			await waitFor(() => expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/usuarios?guardado=111111111"));
 			expect(usuario("111111111")).toMatchObject({ nombre: "Ana", tipoUsuario: "CLIENTE", comuna: "RM-01" });
-			expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/usuarios?guardado=111111111");
 		});
 
 		it("un RUN que ya existe se rechaza y se queda en el formulario", async () => {
@@ -99,7 +99,7 @@ describe("admin / FormularioUsuario", () => {
 
 			await guardar();
 
-			expect(screen.getByRole("alert")).toHaveTextContent("Ya existe un usuario con RUN 190110222.");
+			expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un usuario con el RUN 190110222.");
 			expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/usuarios/nuevo");
 		});
 
@@ -109,7 +109,7 @@ describe("admin / FormularioUsuario", () => {
 
 			await guardar();
 
-			expect(screen.getByRole("alert")).toHaveTextContent("ya esta usado por otro usuario");
+			expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un usuario con el correo camila@gmail.com.");
 			expect(usuario("111111111")).toBeUndefined();
 		});
 
@@ -142,10 +142,12 @@ describe("admin / FormularioUsuario", () => {
 			const nombre = campo("Nombre");
 			await userEvent.clear(nombre);
 			await userEvent.type(nombre, "Camila Paz");
+			// La API no entrega la contrasena: al editar se escribe una nueva.
+			await userEvent.type(campo("Contrasena"), "nueva123");
 			await guardar();
 
+			await waitFor(() => expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/usuarios?guardado=123456785"));
 			expect(usuario("123456785")).toMatchObject({ nombre: "Camila Paz", tipoUsuario: "LOGISTICA" });
-			expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/usuarios?guardado=123456785");
 		});
 
 		it("un correo de otro usuario se rechaza al editar", async () => {
@@ -154,9 +156,10 @@ describe("admin / FormularioUsuario", () => {
 
 			await userEvent.clear(correo);
 			await userEvent.type(correo, "matias@gmail.com");
+			await userEvent.type(campo("Contrasena"), "nueva123");
 			await guardar();
 
-			expect(screen.getByRole("alert")).toHaveTextContent("ya esta usado por otro usuario");
+			expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un usuario con el correo matias@gmail.com.");
 			expect(usuario("123456785").correo).toBe("camila@gmail.com");
 		});
 

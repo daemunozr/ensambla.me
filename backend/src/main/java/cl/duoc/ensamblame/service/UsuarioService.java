@@ -1,5 +1,6 @@
 package cl.duoc.ensamblame.service;
 
+import cl.duoc.ensamblame.dto.request.PerfilRequest;
 import cl.duoc.ensamblame.dto.request.UsuarioRequest;
 import cl.duoc.ensamblame.dto.response.UsuarioResponse;
 import cl.duoc.ensamblame.exception.RecursoNoEncontradoException;
@@ -66,6 +67,37 @@ public class UsuarioService {
         });
 
         copiarDatos(usuario, request);
+        return aResponse(usuarioRepository.save(usuario));
+    }
+
+    /**
+     * La cuenta edita sus propios datos. El RUN y el tipo de usuario no cambian. La contrasena solo
+     * cambia si viene una nueva, y para eso hay que acertar la actual.
+     */
+    public UsuarioResponse actualizarPerfil(String run, PerfilRequest request) {
+        Usuario usuario = buscar(run);
+
+        usuarioRepository.findByCorreo(request.correo()).ifPresent(otro -> {
+            if (!otro.getRun().equals(usuario.getRun())) {
+                throw new ReglaNegocioException("Ya existe un usuario con el correo " + request.correo() + ".");
+            }
+        });
+
+        if (request.contrasenaNueva() != null && !request.contrasenaNueva().isBlank()) {
+            if (request.contrasenaActual() == null
+                    || !passwordEncoder.matches(request.contrasenaActual(), usuario.getContrasena())) {
+                throw new SolicitudInvalidaException("La contrasena actual no es correcta.");
+            }
+            usuario.setContrasena(passwordEncoder.encode(request.contrasenaNueva()));
+        }
+
+        usuario.setNombre(request.nombre());
+        usuario.setApellidos(request.apellidos());
+        usuario.setCorreo(request.correo());
+        usuario.setFechaNacimiento(request.fechaNacimiento());
+        usuario.setRegion(request.region());
+        usuario.setComuna(request.comuna());
+        usuario.setDireccion(request.direccion());
         return aResponse(usuarioRepository.save(usuario));
     }
 

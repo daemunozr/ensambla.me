@@ -6,11 +6,11 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import Toasts from "../components/Toasts.jsx";
 import * as reglas from "../logic/carrito.js";
-import { CarritoContext, guardarCarrito, leerCarrito } from "./carrito.js";
+import { CarritoContext, guardarCarrito, leerCarrito, leerLineasGuardadas } from "./carrito.js";
 import { useDatos } from "./datos.js";
 
 export default function CarritoProvider({ children }) {
-	const [guardadas, setLineas] = useState(leerCarrito);
+	const [guardadas, setLineas] = useState(leerLineasGuardadas);
 	const { productos } = useDatos();
 
 	/*

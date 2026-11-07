@@ -8,18 +8,26 @@ import { MemoryRouter } from "react-router";
 import CarritoProvider from "./context/CarritoProvider.jsx";
 import DatosProvider from "./context/DatosProvider.jsx";
 import SesionProvider from "./context/SesionProvider.jsx";
+import { reiniciarMundo } from "./testing/apiFalsa.js";
 
-export const SESION_ADMIN = { run: "11111111K", nombre: "Admin", apellidos: "Prueba", correo: "admin@duoc.cl", rol: "ADMIN" };
-export const SESION_CLIENTE = { run: "22222222K", nombre: "Cliente", apellidos: "Prueba", correo: "cliente@gmail.com", rol: "CLIENTE" };
-export const SESION_LOGISTICA = { run: "33333333K", nombre: "Bodega", apellidos: "Prueba", correo: "bodega@duoc.cl", rol: "LOGISTICA" };
+// Los tokens de prueba son "ROL:RUN": asi los entiende la API falsa (testing/apiFalsa.js).
+const conTokens = (sesion) => ({
+	...sesion,
+	accessToken: `${sesion.rol}:${sesion.run}`,
+	refreshToken: `REFRESH|${sesion.rol}:${sesion.run}`,
+});
+
+export const SESION_ADMIN = conTokens({ run: "11111111K", nombre: "Admin", apellidos: "Prueba", correo: "admin@duoc.cl", rol: "ADMIN" });
+export const SESION_CLIENTE = conTokens({ run: "22222222K", nombre: "Cliente", apellidos: "Prueba", correo: "cliente@gmail.com", rol: "CLIENTE" });
+export const SESION_LOGISTICA = conTokens({ run: "33333333K", nombre: "Bodega", apellidos: "Prueba", correo: "bodega@duoc.cl", rol: "LOGISTICA" });
 
 /** Sesion de un usuario de la semilla (por su RUN), como la dejaria el inicio de sesion. */
-export const sesionDe = ({ run, nombre, apellidos, correo, tipoUsuario }) => ({ run, nombre, apellidos, correo, rol: tipoUsuario });
+export const sesionDe = ({ run, nombre, apellidos, correo, tipoUsuario }) =>
+	conTokens({ run, nombre, apellidos, correo, rol: tipoUsuario });
 
-/** Deja el almacenamiento como en una visita nueva: sin sesion, carrito ni copia de trabajo de los datos. */
+/** Deja todo como en una visita nueva: sin sesion ni carrito, y la API falsa con los datos de la semilla. */
 export function limpiarAlmacenamiento() {
-	window.sessionStorage.clear();
-	window.localStorage.clear();
+	reiniciarMundo();
 }
 
 /**
@@ -31,11 +39,11 @@ export function renderConProviders(interfaz, { ruta = "/", sesion = null } = {})
 
 	return render(
 		<MemoryRouter initialEntries={[ruta]}>
-			<DatosProvider>
-				<SesionProvider>
+			<SesionProvider>
+				<DatosProvider precargado>
 					<CarritoProvider>{interfaz}</CarritoProvider>
-				</SesionProvider>
-			</DatosProvider>
+				</DatosProvider>
+			</SesionProvider>
 		</MemoryRouter>,
 	);
 }

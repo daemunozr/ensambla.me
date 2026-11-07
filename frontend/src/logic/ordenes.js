@@ -30,8 +30,9 @@ export function siguienteNumero(ordenes, fecha) {
 
 /**
  * Quien puede ver una orden. El personal (administrador y logistico) ve todas y
- * un cliente solo las suyas. La orden de un invitado no tiene dueno y se ve
- * con su enlace: sin backend no hay como autenticarlo.
+ * un cliente solo las suyas. La orden de un invitado no tiene dueno: se muestra
+ * la boleta que devolvio su compra (data/datos.js la guarda aparte), porque la
+ * API no deja consultarla despues.
  */
 export function puedeVerOrden(orden, sesion) {
 	if (!orden) return false;

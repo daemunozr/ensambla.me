@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react";
-import { guardarCarrito, leerCarrito, useCarrito } from "./carrito.js";
+import { guardarCarrito, leerCarrito, leerLineasGuardadas, useCarrito } from "./carrito.js";
 
 describe("carrito en localStorage", () => {
 	beforeEach(() => {
@@ -19,6 +19,23 @@ describe("carrito en localStorage", () => {
 		guardarCarrito([{ linea: 1, producto: "PER-MOUSE-RGB", cantidad: 2, armado: null }]);
 
 		expect(leerCarrito()).toEqual([{ linea: 1, producto: "PER-MOUSE-RGB", cantidad: 2, armado: null }]);
+	});
+
+	describe("leerLineasGuardadas (sin ajustar al catalogo)", () => {
+		it("devuelve las lineas tal como estan guardadas, aunque el producto no este en el catalogo cargado", () => {
+			const lineas = [{ linea: 1, producto: "NO-ESTA-AUN", cantidad: 9999, armado: null }];
+			window.localStorage.setItem("carrito", JSON.stringify(lineas));
+
+			expect(leerLineasGuardadas()).toEqual(lineas);
+		});
+
+		it("sin nada guardado, con JSON roto o con algo que no es una lista devuelve una lista vacia", () => {
+			expect(leerLineasGuardadas()).toEqual([]);
+			window.localStorage.setItem("carrito", "{no es json");
+			expect(leerLineasGuardadas()).toEqual([]);
+			window.localStorage.setItem("carrito", JSON.stringify({ linea: 1 }));
+			expect(leerLineasGuardadas()).toEqual([]);
+		});
 	});
 
 	it("leerCarrito ajusta las cantidades al stock del catalogo", () => {

@@ -4,6 +4,7 @@ import { Route, Routes } from "react-router";
 import { producto } from "../data/datos.js";
 import { limpiarAlmacenamiento, renderConProviders } from "../testUtils.jsx";
 import Producto from "./Producto.jsx";
+import { guardarDatos } from "../testing/apiFalsa.js";
 
 function montar(sku) {
 	return renderConProviders(
@@ -46,7 +47,7 @@ describe("Producto", () => {
 	});
 
 	it("un producto en stock critico muestra la alerta de ultimas unidades", () => {
-		window.sessionStorage.setItem("productos", JSON.stringify([{ ...producto("CPU-R5-7600"), stock: 2, stockCritico: 5 }]));
+		guardarDatos("productos", [{ ...producto("CPU-R5-7600"), stock: 2, stockCritico: 5 }]);
 		montar("CPU-R5-7600");
 
 		expect(screen.getByText("Ultimas unidades disponibles")).toBeInTheDocument();
@@ -59,7 +60,7 @@ describe("Producto", () => {
 	});
 
 	it("un producto sin descripcion lo indica", () => {
-		window.sessionStorage.setItem("productos", JSON.stringify([{ ...producto("CPU-R5-7600"), descripcion: "" }]));
+		guardarDatos("productos", [{ ...producto("CPU-R5-7600"), descripcion: "" }]);
 		montar("CPU-R5-7600");
 
 		expect(screen.getByText("Este producto todavia no tiene descripcion.")).toBeInTheDocument();
@@ -70,7 +71,7 @@ describe("Producto", () => {
 		expect(screen.queryByRole("heading", { name: "Video del producto" })).not.toBeInTheDocument();
 		unmount();
 
-		window.sessionStorage.setItem("productos", JSON.stringify([{ ...producto("CPU-R5-7600"), video: "resources/video/ensamblame.mp4" }]));
+		guardarDatos("productos", [{ ...producto("CPU-R5-7600"), video: "resources/video/ensamblame.mp4" }]);
 		montar("CPU-R5-7600");
 		expect(screen.getByRole("heading", { name: "Video del producto" })).toBeInTheDocument();
 	});
@@ -84,7 +85,7 @@ describe("Producto", () => {
 	});
 
 	it("sin stock el boton queda deshabilitado", () => {
-		window.sessionStorage.setItem("productos", JSON.stringify([{ ...producto("CPU-R5-7600"), stock: 0 }]));
+		guardarDatos("productos", [{ ...producto("CPU-R5-7600"), stock: 0 }]);
 		montar("CPU-R5-7600");
 
 		expect(screen.getByRole("button", { name: "Sin stock" })).toBeDisabled();

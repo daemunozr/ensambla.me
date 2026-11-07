@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { ZonaAviso } from "../components/Alerta.jsx";
 import Campo from "../components/Campo.jsx";
@@ -9,7 +9,7 @@ import SelectRegionComuna from "../components/SelectRegionComuna.jsx";
 import { useCarrito } from "../context/carrito.js";
 import { useDatos } from "../context/datos.js";
 import { useSesion } from "../context/sesion.js";
-import { comuna, producto as buscarProducto, usuario } from "../data/datos.js";
+import { comuna, producto as buscarProducto } from "../data/datos.js";
 import { useFormulario } from "../hooks/useFormulario.js";
 import { useTitulo } from "../hooks/useTitulo.js";
 import { OPCIONES_ENTREGA, consolidar, costoEnvio, faltantes } from "../logic/checkout.js";
@@ -20,6 +20,8 @@ import {
 	formatearVencimiento,
 	medioDePago,
 } from "../logic/pago.js";
+import { usuarioDeApi } from "../services/adaptadores.js";
+import { miCuenta } from "../services/recursos.js";
 import { precio } from "../utils/formato.js";
 import { reglas } from "../utils/validaciones.js";
 
@@ -57,10 +59,8 @@ const DATOS_DE_PAGO = {
  * intento anterior (la tarjeta nunca se conserva), los de la cuenta con la
  * sesion iniciada, o vacio.
  */
-function valoresIniciales(estado, sesion) {
+function valoresIniciales(estado, cuenta) {
 	if (estado?.datos) return { ...VACIO, ...estado.datos };
-
-	const cuenta = sesion ? usuario(sesion.run) : null;
 	if (!cuenta) return VACIO;
 	return {
 		...VACIO,
@@ -73,14 +73,14 @@ function valoresIniciales(estado, sesion) {
 	};
 }
 
-function Formulario({ lineas, subtotal, onTerminar }) {
+function Formulario({ lineas, subtotal, cuenta, onTerminar }) {
 	const navegar = useNavigate();
 	const { state } = useLocation();
 	const { sesion } = useSesion();
 	const { crearOrden } = useDatos();
 	const { vaciar } = useCarrito();
 
-	const [inicial] = useState(() => valoresIniciales(state, sesion));
+	const [inicial] = useState(() => valoresIniciales(state, cuenta));
 	const [entrega, setEntrega] = useState(state?.datos?.entrega ?? OPCIONES_ENTREGA[0].codigo);
 	const [aviso, setAviso] = useState(null);
 
@@ -98,8 +98,9 @@ function Formulario({ lineas, subtotal, onTerminar }) {
 	const { registrar, estado, errores, enviar } = formulario;
 	const items = consolidar(lineas, buscarProducto);
 
-	const alEnviar = (datos) => {
-		// Se comprueba el stock antes de cobrar: despues de aprobar el pago ya no se puede rechazar.
+	const alEnviar = async (datos) => {
+		// Se comprueba el stock con lo ultimo que se leyo antes de cobrar; el servidor lo vuelve a
+		// comprobar al registrar la compra y es quien decide.
 		const sinStock = faltantes(items, buscarProducto);
 		if (sinStock.length) {
 			setAviso({
@@ -129,8 +130,8 @@ function Formulario({ lineas, subtotal, onTerminar }) {
 			medio = medioDePago(datos.tarjeta);
 		}
 
-		const resultado = crearOrden({
-			cliente: sesion?.run ?? "",
+		// La cuenta compradora sale del token: sin sesion, la compra es de invitado.
+		const resultado = await crearOrden({
 			comprador: {
 				nombre: `${datos.nombre} ${datos.apellidos}`,
 				correo: datos.correo,
@@ -339,7 +340,30 @@ function Formulario({ lineas, subtotal, onTerminar }) {
 export default function Checkout() {
 	useTitulo("Checkout — Ensambla.me");
 	const { lineas, total } = useCarrito();
+	const { sesion } = useSesion();
 	const [terminado, setTerminado] = useState(false);
+	// La cuenta (para completar los datos de envio) se pide a la API; undefined = todavia no llega.
+	const [cuenta, setCuenta] = useState(undefined);
+
+	useEffect(() => {
+		if (!sesion) return undefined;
+		let vigente = true;
+		miCuenta().then((respuesta) => {
+			if (vigente) setCuenta(respuesta.ok ? usuarioDeApi(respuesta.datos) : null);
+		});
+		return () => {
+			vigente = false;
+		};
+	}, [sesion]);
+
+	if (sesion && cuenta === undefined && !terminado) {
+		return (
+			<main role="status">
+				<h1 className="h3">Finalizar compra</h1>
+				<p className="text-secondary">Cargando tus datos…</p>
+			</main>
+		);
+	}
 
 	if (terminado) {
 		return (
@@ -364,5 +388,5 @@ export default function Checkout() {
 		);
 	}
 
-	return <Formulario lineas={lineas} subtotal={total} onTerminar={() => setTerminado(true)} />;
+	return <Formulario lineas={lineas} subtotal={total} cuenta={sesion ? cuenta : null} onTerminar={() => setTerminado(true)} />;
 }

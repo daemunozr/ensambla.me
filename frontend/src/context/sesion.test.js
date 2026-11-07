@@ -14,14 +14,16 @@ describe("leerSesion", () => {
 	});
 
 	it("devuelve la sesion guardada", () => {
-		const sesion = { run: "123456785", rol: "CLIENTE", nombre: "Camila" };
+		const sesion = { run: "123456785", rol: "CLIENTE", nombre: "Camila", accessToken: "CLIENTE:123456785", refreshToken: "REFRESH|CLIENTE:123456785" };
 		window.sessionStorage.setItem(CLAVE_SESION, JSON.stringify(sesion));
 
 		expect(leerSesion()).toEqual(sesion);
 	});
 
-	it("una sesion sin RUN o sin rol no cuenta", () => {
+	it("una sesion sin RUN, sin rol o sin token no cuenta", () => {
 		window.sessionStorage.setItem(CLAVE_SESION, JSON.stringify({ run: "123456785" }));
+		expect(leerSesion()).toBeNull();
+		window.sessionStorage.setItem(CLAVE_SESION, JSON.stringify({ run: "123456785", rol: "CLIENTE" }));
 		expect(leerSesion()).toBeNull();
 	});
 

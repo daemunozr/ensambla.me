@@ -24,8 +24,8 @@ export default function Login() {
 	const { registrar, estado, errores, enviar } = useFormulario(INICIAL, DEFINICION);
 	const [aviso, setAviso] = useState(null);
 
-	const alEnviar = (datos) => {
-		const resultado = iniciar(datos.correo, datos.contrasena);
+	const alEnviar = async (datos) => {
+		const resultado = await iniciar(datos.correo, datos.contrasena);
 		if (!resultado.ok) {
 			setAviso({ tipo: "danger", contenido: resultado.mensaje });
 			return;

@@ -47,8 +47,8 @@ const protegida = (roles, vista) => <RutaProtegida roles={roles}>{vista}</RutaPr
 
 export default function App() {
 	return (
-		<DatosProvider>
-			<SesionProvider>
+		<SesionProvider>
+			<DatosProvider>
 				<CarritoProvider>
 					<Routes>
 						{/* Vistas de tienda con la barra lateral de categorias (RNF-08 CA3). */}
@@ -99,7 +99,7 @@ export default function App() {
 						</Route>
 					</Routes>
 				</CarritoProvider>
-			</SesionProvider>
-		</DatosProvider>
+			</DatosProvider>
+		</SesionProvider>
 	);
 }

@@ -1,50 +1,138 @@
 /*
- * Fuente de datos simulada del sistema: lectura y CRUD.
+ * Datos del sistema: copia en memoria de lo que entrega la API, mas lectura y
+ * escritura.
  *
- * Productos, usuarios, categorias y ordenes (con sus items) son colecciones con
- * copia de trabajo en sessionStorage (data/coleccion.js), sembradas desde
- * data/semillas.js; el resto de las relaciones son de solo lectura. Las operaciones de escritura
- * aplican las reglas de negocio y devuelven { ok, registro, mensaje }: con
- * ok en false no cambian nada. La interfaz las usa a traves de
- * context/DatosProvider, que vuelve a renderizar tras cada cambio.
+ * Productos, categorias, usuarios y boletas (ordenes con sus items) se cargan
+ * desde la API (services/recursos.js) y se guardan aqui para que la interfaz
+ * los lea de forma sincrona. Cada escritura llama a la API y, si resulta,
+ * vuelve a cargar lo que cambio; devuelve { ok, registro, mensaje } y con ok en
+ * false no cambia nada. La interfaz las usa a traves de context/DatosProvider,
+ * que vuelve a renderizar tras cada cambio.
+ *
+ * Regiones, comunas, roles, compatibilidad y blogs no los sirve la API: siguen
+ * viniendo de data/semillas.js. Los usuarios solo se cargan para un
+ * administrador; las boletas, para quien tiene sesion (un cliente recibe solo
+ * las suyas).
  */
-import { consolidar, costoEnvio, entregaDe, faltantes } from "../logic/checkout.js";
-import { siguienteNumero, subtotalItems } from "../logic/ordenes.js";
-import { fechaLocal } from "../utils/formato.js";
-import { crearColeccion } from "./coleccion.js";
+import { leerSesion } from "../context/sesion.js";
+import { subtotalItems } from "../logic/ordenes.js";
+import {
+	boletaDeApi,
+	boletaParaApi,
+	categoriaParaApi,
+	productoDeApi,
+	productoParaApi,
+	registroParaApi,
+	usuarioDeApi,
+	usuarioParaApi,
+} from "../services/adaptadores.js";
+import * as api from "../services/recursos.js";
 import * as semillas from "./semillas.js";
 
 export const { compatibilidad, regiones, comunas, roles, blogs } = semillas;
 
-const tablaProductos = crearColeccion({ clave: "productos", semilla: semillas.productos, id: "sku" });
-const tablaUsuarios = crearColeccion({ clave: "usuarios", semilla: semillas.usuarios, id: "run" });
-const tablaCategorias = crearColeccion({ clave: "categorias", semilla: semillas.categorias, id: "codigo" });
-const tablaOrdenes = crearColeccion({ clave: "ordenes", semilla: semillas.ordenes, id: "numero" });
-// La clave de un item es compuesta: (orden, producto).
-const tablaItems = crearColeccion({
-	clave: "itemsOrden",
-	semilla: semillas.itemsOrden,
-	id: (item) => `${item.orden}|${item.producto}`,
-});
+const CLAVE_ULTIMA_BOLETA = "ultimaBoleta";
+
+const VACIO = { productos: [], categorias: [], usuarios: [], ordenes: [], itemsOrden: [] };
+let copia = VACIO;
+
+/** Reemplaza parte de la copia. Solo lo usan este modulo, el proveedor y las pruebas. */
+export function reemplazarCopia(parcial) {
+	copia = { ...copia, ...parcial };
+}
+
+/** Descarta lo privado (usuarios y boletas): al cerrar sesion o cambiar de cuenta. */
+export function vaciarPrivados() {
+	copia = { ...copia, usuarios: [], ordenes: [], itemsOrden: [] };
+	borrarUltimaBoleta();
+}
+
+export function vaciarTodo() {
+	copia = VACIO;
+	borrarUltimaBoleta();
+}
 
 const exito = (registro, mensaje) => ({ ok: true, registro, mensaje });
 const rechazo = (mensaje) => ({ ok: false, mensaje });
 const plural = (n, singular, varios) => `${n} ${n === 1 ? singular : varios}`;
 
-/* ====================================================================== Lectura */
-export const productos = tablaProductos.listar;
-export const producto = tablaProductos.obtener;
-export const usuarios = tablaUsuarios.listar;
-export const usuario = tablaUsuarios.obtener;
-export const categorias = tablaCategorias.listar;
-export const categoria = tablaCategorias.obtener;
-export const ordenes = tablaOrdenes.listar;
-export const itemsOrden = tablaItems.listar;
-export const itemOrden = tablaItems.obtener;
+/* ==================================================== Boleta recien comprada */
+// Un invitado no puede volver a pedir su boleta a la API, asi que la que acaba de
+// comprar se guarda aparte para mostrarla (y sobrevivir a recargar la pagina).
+function ultimaBoleta() {
+	try {
+		const guardada = window.sessionStorage.getItem(CLAVE_ULTIMA_BOLETA);
+		return guardada ? JSON.parse(guardada) : null;
+	} catch {
+		return null;
+	}
+}
 
+function guardarUltimaBoleta(boleta) {
+	try {
+		window.sessionStorage.setItem(CLAVE_ULTIMA_BOLETA, JSON.stringify(boleta));
+	} catch (error) {
+		console.error("datos: no se pudo guardar la boleta", error);
+	}
+}
+
+function borrarUltimaBoleta() {
+	try {
+		window.sessionStorage.removeItem(CLAVE_ULTIMA_BOLETA);
+	} catch {
+		// Sin almacenamiento no hay nada que borrar.
+	}
+}
+
+/* ================================================================== Carga */
+/** Productos y categorias: son publicos. */
+export async function cargarCatalogo() {
+	const [prods, cats] = await Promise.all([api.listarProductos(), api.listarCategorias()]);
+	const fallo = [prods, cats].find((r) => !r.ok);
+	if (fallo) return rechazo(fallo.mensaje);
+	reemplazarCopia({ productos: prods.datos.map(productoDeApi), categorias: cats.datos });
+	return { ok: true };
+}
+
+/** Lo que pide una sesion: sus boletas y, si es administrador, los usuarios. */
+export async function cargarPrivados(sesion) {
+	const [boletas, cuentas] = await Promise.all([
+		api.listarBoletas(),
+		sesion.rol === "ADMIN" ? api.listarUsuarios() : Promise.resolve({ ok: true, datos: [] }),
+	]);
+	const fallo = [boletas, cuentas].find((r) => !r.ok);
+	if (fallo) return rechazo(fallo.mensaje);
+
+	const convertidas = boletas.datos.map(boletaDeApi);
+	reemplazarCopia({
+		usuarios: cuentas.datos.map(usuarioDeApi),
+		ordenes: convertidas.map((b) => b.orden),
+		itemsOrden: convertidas.flatMap((b) => b.items),
+	});
+	return { ok: true };
+}
+
+/** Vuelve a cargar lo que depende de la sesion vigente tras una escritura. */
+async function recargarPrivados() {
+	const sesion = leerSesion();
+	if (sesion) await cargarPrivados(sesion);
+}
+
+/* ====================================================================== Lectura */
+export const productos = () => copia.productos;
+export const producto = (sku) => copia.productos.find((p) => p.sku === sku);
+export const usuarios = () => copia.usuarios;
+export const usuario = (run) => copia.usuarios.find((u) => u.run === run);
+export const categorias = () => copia.categorias;
+export const categoria = (codigo) => copia.categorias.find((c) => c.codigo === codigo);
+export const ordenes = () => copia.ordenes;
+export const itemsOrden = () => copia.itemsOrden;
+
+// El personal no carga los usuarios (solo un administrador puede), pero la boleta trae el nombre.
 export const nombreCliente = (run) => {
 	const cliente = usuario(run);
-	return cliente ? `${cliente.nombre} ${cliente.apellidos}` : run;
+	if (cliente) return `${cliente.nombre} ${cliente.apellidos}`;
+	return copia.ordenes.find((o) => o.cliente === run)?.nombre ?? run;
 };
 export const nombreCategoria = (codigo) => categoria(codigo)?.nombre ?? codigo;
 export const nombreRol = (codigo) => roles.find((r) => r.codigo === codigo)?.nombre ?? codigo;
@@ -64,103 +152,114 @@ export const productosDe = (codigo) => productos().filter((p) => p.categoria ===
 export const admisibles = (sku) => compatibilidad.filter((c) => c.producto === sku).map((c) => c.admisible);
 
 /* Ordenes (RF-12): el total incluye el costo de envio. */
-export const orden = tablaOrdenes.obtener;
+export const orden = (numero) => {
+	const cargada = copia.ordenes.find((o) => o.numero === numero);
+	if (cargada) return cargada;
+	const reciente = ultimaBoleta();
+	return reciente?.orden.numero === numero ? reciente.orden : undefined;
+};
 export const ordenesDe = (run) => ordenes().filter((o) => o.cliente === run);
-export const itemsDeOrden = (numero) => itemsOrden().filter((i) => i.orden === numero);
+export const itemsDeOrden = (numero) => {
+	const cargados = copia.itemsOrden.filter((i) => i.orden === numero);
+	if (cargados.length) return cargados;
+	const reciente = ultimaBoleta();
+	return reciente?.orden.numero === numero ? reciente.items : [];
+};
 export const subtotalOrden = (numero) => subtotalItems(itemsDeOrden(numero));
 export const totalOrden = (numero) => subtotalOrden(numero) + (orden(numero)?.costoEnvio ?? 0);
 
 /* ================================================================== Productos */
-export function crearProducto(nuevo) {
-	if (tablaProductos.existe(nuevo.sku)) return rechazo(`Ya existe un producto con el codigo ${nuevo.sku}.`);
-	tablaProductos.insertar(nuevo);
-	return exito(nuevo, `El producto ${nuevo.sku} se creo correctamente.`);
+export async function crearProducto(nuevo) {
+	const respuesta = await api.crearProducto(productoParaApi(nuevo));
+	if (!respuesta.ok) return rechazo(respuesta.mensaje);
+	await cargarCatalogo();
+	return exito(productoDeApi(respuesta.datos), `El producto ${nuevo.sku} se creo correctamente.`);
 }
 
 /** El SKU identifica al producto y no cambia al editarlo. */
-export function actualizarProducto(sku, datos) {
-	if (!tablaProductos.existe(sku)) return rechazo(`No existe un producto con el codigo ${sku}.`);
-	const registro = { ...datos, sku };
-	tablaProductos.reemplazar(sku, registro);
-	return exito(registro, `El producto ${sku} se guardo correctamente.`);
+export async function actualizarProducto(sku, datos) {
+	const respuesta = await api.editarProducto(sku, productoParaApi({ ...datos, sku }));
+	if (!respuesta.ok) return rechazo(respuesta.mensaje);
+	await cargarCatalogo();
+	return exito(productoDeApi(respuesta.datos), `El producto ${sku} se guardo correctamente.`);
 }
 
 /**
- * Las ordenes conservan sus lineas (con el precio al comprar) aunque el
- * producto ya no este en el catalogo, y el carrito descarta la linea al leerse.
+ * Las boletas conservan sus lineas (con el precio al comprar); el servidor no
+ * deja eliminar un producto que figure en alguna.
  */
-export function eliminarProducto(sku) {
+export async function eliminarProducto(sku) {
 	const existente = producto(sku);
-	if (!existente) return rechazo(`No existe un producto con el codigo ${sku}.`);
-	tablaProductos.quitar(sku);
-	return exito(existente, `El producto ${sku} (${existente.nombre}) se elimino.`);
+	const respuesta = await api.quitarProducto(sku);
+	if (!respuesta.ok) return rechazo(respuesta.mensaje);
+	await cargarCatalogo();
+	return exito(existente, `El producto ${sku} (${existente?.nombre ?? sku}) se elimino.`);
 }
 
 /* =================================================================== Usuarios */
-const correoEnUso = (correo, salvoRun = null) =>
-	usuarios().some((u) => u.correo.toLowerCase() === correo.toLowerCase() && u.run !== salvoRun);
-
-/** El RUN es la clave de Usuario y el correo es credencial: ambos son unicos. */
-export function crearUsuario(nuevo) {
-	const registro = { ...nuevo, run: nuevo.run.toUpperCase(), correo: nuevo.correo.toLowerCase() };
-	if (tablaUsuarios.existe(registro.run)) return rechazo(`Ya existe un usuario con RUN ${registro.run}.`);
-	if (correoEnUso(registro.correo)) return rechazo(`El correo ${registro.correo} ya esta usado por otro usuario.`);
-	tablaUsuarios.insertar(registro);
+export async function crearUsuario(nuevo) {
+	const respuesta = await api.crearUsuario(usuarioParaApi(nuevo));
+	if (!respuesta.ok) return rechazo(respuesta.mensaje);
+	await recargarPrivados();
+	const registro = usuarioDeApi(respuesta.datos);
 	return exito(registro, `El usuario con RUN ${registro.run} se creo correctamente.`);
 }
 
-export function actualizarUsuario(run, datos) {
-	if (!tablaUsuarios.existe(run)) return rechazo(`No existe un usuario con RUN ${run}.`);
-	const registro = { ...datos, run, correo: datos.correo.toLowerCase() };
-	if (correoEnUso(registro.correo, run)) return rechazo(`El correo ${registro.correo} ya esta usado por otro usuario.`);
-	tablaUsuarios.reemplazar(run, registro);
-	return exito(registro, `El usuario con RUN ${run} se guardo correctamente.`);
+/** Registro publico (RF-01): crea una cuenta Cliente. El servidor no deja elegir el rol. */
+export async function registrarCuenta(nuevo) {
+	const respuesta = await api.registrarCuenta(registroParaApi(nuevo));
+	if (!respuesta.ok) return rechazo(respuesta.mensaje);
+	return exito(usuarioDeApi(respuesta.datos), `La cuenta con RUN ${respuesta.datos.run} se creo correctamente.`);
+}
+
+export async function actualizarUsuario(run, datos) {
+	const respuesta = await api.editarUsuario(run, usuarioParaApi({ ...datos, run }));
+	if (!respuesta.ok) return rechazo(respuesta.mensaje);
+	await recargarPrivados();
+	return exito(usuarioDeApi(respuesta.datos), `El usuario con RUN ${run} se guardo correctamente.`);
 }
 
 /**
- * No se elimina la cuenta con la sesion iniciada ni un usuario con ordenes,
- * que lo referencian como cliente (Orden.cliente).
+ * No se elimina la cuenta con la sesion iniciada (lo comprueba la interfaz) ni
+ * un usuario con boletas, que lo referencian (lo rechaza el servidor).
  */
-export function eliminarUsuario(run, runSesion = null) {
+export async function eliminarUsuario(run, runSesion = null) {
 	const existente = usuario(run);
-	if (!existente) return rechazo(`No existe un usuario con RUN ${run}.`);
 	if (run === runSesion) return rechazo("No puedes eliminar tu propia cuenta mientras tienes la sesion iniciada.");
 
-	const suyas = ordenesDe(run).length;
-	if (suyas) {
-		return rechazo(
-			`No se puede eliminar a ${existente.nombre} ${existente.apellidos}: tiene ${plural(suyas, "orden", "ordenes")} a su nombre.`,
-		);
-	}
-
-	tablaUsuarios.quitar(run);
-	return exito(existente, `El usuario ${existente.nombre} ${existente.apellidos} (RUN ${run}) se elimino.`);
+	const respuesta = await api.quitarUsuario(run);
+	if (!respuesta.ok) return rechazo(respuesta.mensaje);
+	await recargarPrivados();
+	const nombre = existente ? `${existente.nombre} ${existente.apellidos}` : run;
+	return exito(existente, `El usuario ${nombre} (RUN ${run}) se elimino.`);
 }
 
 /* ================================================================= Categorias */
-export function crearCategoria(nueva) {
-	if (tablaCategorias.existe(nueva.codigo)) return rechazo(`Ya existe una categoria con el codigo ${nueva.codigo}.`);
+export async function crearCategoria(nueva) {
 	// Las categorias nuevas no participan del asistente: su recorrido depende de
 	// la tabla de compatibilidad, que no se mantiene desde el panel.
-	const registro = { codigo: nueva.codigo, nombre: nueva.nombre };
-	tablaCategorias.insertar(registro);
-	return exito(registro, `La categoria ${registro.nombre} se creo correctamente.`);
+	const respuesta = await api.crearCategoria(categoriaParaApi({ codigo: nueva.codigo, nombre: nueva.nombre }));
+	if (!respuesta.ok) return rechazo(respuesta.mensaje);
+	await cargarCatalogo();
+	return exito(respuesta.datos, `La categoria ${respuesta.datos.nombre} se creo correctamente.`);
 }
 
 /** Solo cambia el nombre: el codigo es la clave y el orden lo fija el asistente. */
-export function actualizarCategoria(codigo, datos) {
+export async function actualizarCategoria(codigo, datos) {
 	const existente = categoria(codigo);
 	if (!existente) return rechazo(`No existe una categoria con el codigo ${codigo}.`);
-	const registro = { ...existente, nombre: datos.nombre };
-	tablaCategorias.reemplazar(codigo, registro);
-	return exito(registro, `La categoria ${registro.nombre} se guardo correctamente.`);
+	const respuesta = await api.editarCategoria(codigo, categoriaParaApi({ ...existente, nombre: datos.nombre }));
+	if (!respuesta.ok) return rechazo(respuesta.mensaje);
+	await cargarCatalogo();
+	return exito(respuesta.datos, `La categoria ${respuesta.datos.nombre} se guardo correctamente.`);
 }
 
 /**
- * No se elimina una categoria con productos (Producto.categoria la referencia)
- * ni una del asistente: el modo equipo completo exige una opcion en cada paso.
+ * No se elimina una categoria del asistente (lo comprueba la interfaz: el modo
+ * equipo completo exige una opcion en cada paso) ni una con productos (lo
+ * rechaza el servidor).
  */
-export function eliminarCategoria(codigo) {
+export async function eliminarCategoria(codigo) {
 	const existente = categoria(codigo);
 	if (!existente) return rechazo(`No existe una categoria con el codigo ${codigo}.`);
 	if (existente.orden) {
@@ -174,47 +273,28 @@ export function eliminarCategoria(codigo) {
 		);
 	}
 
-	tablaCategorias.quitar(codigo);
+	const respuesta = await api.quitarCategoria(codigo);
+	if (!respuesta.ok) return rechazo(respuesta.mensaje);
+	await cargarCatalogo();
 	return exito(existente, `La categoria ${existente.nombre} se elimino.`);
 }
 
-/* ===================================================================== Ordenes */
+/* ===================================================================== Boletas */
 /**
- * Registra una compra. comprador es { nombre, correo, direccion, comuna } y
- * cliente es el RUN de quien compra, o "" si es un invitado. Se valida todo
- * antes de escribir: con ok en false no cambia nada. Al registrarla descuenta
- * el stock de cada producto.
+ * Registra una compra. comprador es { nombre, correo, direccion, comuna }. El
+ * servidor calcula precios, envio y total, descuenta el stock y numera la
+ * boleta; la cuenta compradora sale del token (sin sesion, es un invitado).
  */
-export function crearOrden({ cliente = "", comprador, entrega, medioPago, lineas }) {
+export async function crearOrden({ comprador, entrega, medioPago, lineas }) {
 	if (!lineas?.length) return rechazo("No hay productos para comprar.");
-	if (!entregaDe(entrega)) return rechazo("Elige una opcion de entrega valida.");
-	if (cliente && !usuario(cliente)) return rechazo("La cuenta con la que compras ya no existe.");
 
-	const items = consolidar(lineas, producto);
-	const sinStock = faltantes(items, producto);
-	if (sinStock.length) return rechazo(`Sin stock suficiente: ${sinStock.join(", ")}.`);
+	const respuesta = await api.comprar(boletaParaApi({ comprador, entrega, medioPago, lineas }));
+	// Con o sin exito el stock pudo cambiar: se vuelve a leer el catalogo.
+	await cargarCatalogo();
+	if (!respuesta.ok) return rechazo(respuesta.mensaje);
 
-	const fecha = fechaLocal();
-	const numero = siguienteNumero(ordenes(), fecha);
-	const registro = {
-		numero,
-		cliente,
-		fecha,
-		nombre: comprador.nombre,
-		correo: comprador.correo.toLowerCase(),
-		direccion: comprador.direccion,
-		comuna: comprador.comuna,
-		entrega,
-		costoEnvio: costoEnvio(entrega, subtotalItems(items)),
-		medioPago,
-	};
-
-	tablaOrdenes.insertar(registro);
-	tablaItems.insertarVarios(items.map((item) => ({ orden: numero, ...item })));
-	items.forEach(({ producto: sku, cantidad }) => {
-		const existente = producto(sku);
-		tablaProductos.reemplazar(sku, { ...existente, stock: Number(existente.stock) - cantidad });
-	});
-
-	return exito(registro, `La orden ${numero} se registro correctamente.`);
+	const boleta = boletaDeApi(respuesta.datos);
+	guardarUltimaBoleta(boleta);
+	await recargarPrivados();
+	return exito(boleta.orden, `La orden ${boleta.orden.numero} se registro correctamente.`);
 }

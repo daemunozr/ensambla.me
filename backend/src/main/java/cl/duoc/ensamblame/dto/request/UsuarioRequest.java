@@ -44,11 +44,11 @@ public record UsuarioRequest(
         LocalDate fechaNacimiento,
 
         @NotBlank(message = "La region es obligatoria.")
-        @Schema(description = "Region", example = "Region Metropolitana")
+        @Schema(description = "Codigo de la region", example = "RM")
         String region,
 
         @NotBlank(message = "La comuna es obligatoria.")
-        @Schema(description = "Comuna", example = "Providencia")
+        @Schema(description = "Codigo de la comuna", example = "RM-02")
         String comuna,
 
         @NotBlank(message = "La direccion es obligatoria.")
