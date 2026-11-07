@@ -24,3 +24,6 @@ target/
 # Documentos evaluacion
 docs/
 info/
+
+# Configuracion local de docker compose (la plantilla es .env.example)
+.env

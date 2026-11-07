@@ -6,7 +6,7 @@ spring:
   # cambiar con una variable de entorno; los que van despues de ":" son los de
   # desarrollo y coinciden con los del docker-compose.yml.
   datasource:
-    url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:ensamblame}
+    url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3307}/${DB_NAME:ensamblame}
     username: ${DB_USER:ensamblame}
     password: ${DB_PASSWORD:ensamblame_dev}
     driver-class-name: org.mariadb.jdbc.Driver

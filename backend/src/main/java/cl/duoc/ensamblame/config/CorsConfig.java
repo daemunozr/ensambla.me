@@ -9,14 +9,14 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
 
-    // Se lee de application.yml (app.cors.origen).
+    // Se lee de application.yml (app.cors.origen); varios origenes van separados por coma.
     @Value("${app.cors.origen}")
-    private String origenPermitido;
+    private String[] origenesPermitidos;
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins(origenPermitido)
+                .allowedOrigins(origenesPermitidos)
                 .allowedMethods("GET", "POST", "PUT", "DELETE");
     }
 }

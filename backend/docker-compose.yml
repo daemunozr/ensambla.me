@@ -1,28 +1,32 @@
-# API REST (Spring Boot). Se conecta a la MariaDB de ../database, que debe estar
-# levantada antes: comparten la red ensamblame-net.
+# API REST (Spring Boot). La imagen se compila dentro de Docker (Maven y JDK 21 incluidos): no hace
+# falta tener Java ni Maven instalados. Se conecta a la MariaDB de ../database a traves del host
+# (host.docker.internal y el puerto que publica esa base), asi que no depende de redes compartidas ni
+# de levantar los proyectos en un orden: si arranca antes que la base, reintenta hasta que este lista.
+# Para cambiar puertos o credenciales, crea un .env junto a este archivo (ver .env.example).
 #
 #   docker compose up -d --build    construye la imagen y levanta la API (http://localhost:8080)
 #   docker compose down             la detiene
-# Nombre fijo del proyecto: sin el, Docker usa el de la carpeta y se mezcla con otros
-# proyectos que tambien tengan una carpeta "backend".
 name: ensamblame-backend
 services:
   backend:
     build: .
-    container_name: ensamblame-backend
     restart: unless-stopped
     environment:
-      DB_HOST: mariadb
-      DB_PORT: 3306
-      DB_NAME: ensamblame
-      DB_USER: ensamblame
-      DB_PASSWORD: ensamblame_dev
-      APP_CORS_ORIGEN: http://localhost:5173
+      DB_HOST: ${DB_HOST:-host.docker.internal}
+      DB_PORT: ${DB_PORT:-3307}
+      DB_NAME: ${DB_NAME:-ensamblame}
+      DB_USER: ${DB_USER:-ensamblame}
+      DB_PASSWORD: ${DB_PASSWORD:-ensamblame_dev}
+      # Origenes del frontend autorizados por CORS: el de Docker (8081) y el de Vite (5173).
+      APP_CORS_ORIGEN: ${CORS_ORIGEN:-http://localhost:8081,http://localhost:5173}
+    extra_hosts:
+      # En Linux, host.docker.internal no existe por defecto; en Mac y Windows ya viene definido.
+      - "host.docker.internal:host-gateway"
     ports:
-      - "8080:8080"
-    networks:
-      - ensamblame-net
-
-networks:
-  ensamblame-net:
-    external: true
+      - "${API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s

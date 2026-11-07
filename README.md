@@ -41,9 +41,8 @@ npm run build      # salida en dist/
 npm run lint
 ```
 
-También se puede servir compilada con Docker: `docker compose up -d --build` en `frontend/`
-(http://localhost:5173). Necesita la red `ensamblame-net`, que crea `database/docker-compose.yml`
-(ver [11.2](#112-cómo-ejecutarlo)).
+También se puede servir compilada con Docker, sin tener Node instalado: `docker compose up -d --build`
+en `frontend/` (http://localhost:8081). No depende de las otras partes (ver [11.2](#112-cómo-ejecutarlo)).
 
 La aplicación **no usa** el backend de `backend/`: trabaja con datos simulados de `src/data/`.
 
@@ -627,24 +626,34 @@ Si cambia `style.css` o el marcado, conviene repetir la revisión.
 ## 11. Backend (API REST)
 
 API REST con **Spring Boot 4.1.2**, **Java 21** y **MariaDB** en Docker, para categorías, productos,
-usuarios y boletas. El frontend **todavía no la usa**. Deja CORS habilitado para `http://localhost:5173`.
+usuarios y boletas. El frontend **todavía no la usa**. Deja CORS habilitado para `http://localhost:5173` (Vite) y `http://localhost:8081` (frontend en Docker).
 Lo que falta para la Evaluación 3 (versionado, Swagger, JWT y roles) está en la [sección 12](#12-evaluación-3-pendiente-en-backend-y-base-de-datos).
 
 ### 11.1 Requisitos
 
-- JDK 21 o superior y Maven 3.9
-- Docker con Docker Compose (el usuario debe estar en el grupo `docker`)
+- Docker con Docker Compose (el usuario debe estar en el grupo `docker`). Es lo único necesario para
+  levantar las tres partes: las imágenes compilan dentro de Docker, con Maven y JDK 21 (backend) y
+  Node 22 (frontend) incluidos.
+- JDK 21 y Maven 3.9 solo si se quiere ejecutar el backend fuera de Docker (`mvn spring-boot:run`, `mvn test`).
 
 ### 11.2 Cómo ejecutarlo
 
-Cada parte tiene su propio `docker-compose.yml` y comparten la red `ensamblame-net`, que crea el de
-`database/`: por eso la base se levanta primero.
+Cada parte tiene su propio `docker-compose.yml` y son independientes: sin redes compartidas ni
+`container_name`, y con un nombre de proyecto fijo (`ensamblame-database`, `-backend` y `-frontend`),
+así que no chocan entre sí ni con otros proyectos de la máquina y se pueden levantar en cualquier
+orden. El backend llega a la base por el host (`host.docker.internal` y el puerto que publica
+`database/`); si arranca antes que la base, reintenta hasta que esté lista.
 
-| Carpeta | Qué levanta | Comando | URL / puerto |
-|---|---|---|---|
-| `database/` | MariaDB 11.8 | `docker compose up -d` | `localhost:3306` |
-| `backend/` | API Spring Boot (`Dockerfile` propio) | `docker compose up -d --build` | http://localhost:8080 |
-| `frontend/` | React compilado y servido con nginx | `docker compose up -d --build` | http://localhost:5173 |
+| Carpeta | Qué levanta | Comando | URL / puerto por defecto | Variable |
+|---|---|---|---|---|
+| `database/` | MariaDB 11.8 | `docker compose up -d` | `localhost:3307` | `DB_PORT` |
+| `backend/` | API Spring Boot (`Dockerfile` propio) | `docker compose up -d --build` | http://localhost:8080 | `API_PORT` |
+| `frontend/` | React compilado y servido con nginx | `docker compose up -d --build` | http://localhost:8081 | `WEB_PORT` |
+
+Los puertos son poco comunes a propósito (la base usa 3307 y no 3306). Para cambiar un puerto o una
+credencial, se copia el `.env.example` de la carpeta como `.env` (no se versiona). Si se cambia
+`DB_PORT`, `DB_NAME`, `DB_USER` o `DB_PASSWORD`, el mismo valor va en el `.env` de `database/` y en el de
+`backend/`; `CORS_ORIGEN` (en `backend/`) debe incluir la URL del frontend.
 
 Para desarrollar sin contenedor de la API: `docker compose up -d` en `database/` (espera a que quede
 «healthy» con `docker compose ps`), luego `mvn spring-boot:run` y `mvn test` en `backend/` (las
@@ -657,8 +666,8 @@ Al arrancar por primera vez, `CargaInicial` crea las tablas (JPA) y carga 9 cate
 
 La conexión está en `src/main/resources/application.yml` y cada valor se cambia con `DB_HOST`,
 `DB_PORT`, `DB_NAME`, `DB_USER` o `DB_PASSWORD`. Los valores por defecto son los de desarrollo de
-`database/docker-compose.yml` (dentro de Docker el backend usa `DB_HOST=mariadb`). **No sirven para
-producción.**
+`database/docker-compose.yml` (con `docker compose`, el backend usa `DB_HOST=host.docker.internal`).
+**No sirven para producción.**
 
 ### 11.3 Arquitectura (MVC)
 
@@ -765,7 +774,7 @@ CRUD de categorías, productos y usuarios.
 | IE3.1.1 Backend y base de datos | 8 % | CRUD de categorías, productos y usuarios, y boletas con detalle y compra transaccional (sección 12.3), sobre MariaDB | Nada pendiente en el modelo; depende de la autenticación para asociar la boleta a la cuenta en sesión |
 | IE3.2.1 API REST y Swagger | 8 % | Endpoints CRUD y de boletas en `/api/...` | Versionado `/api/v1/`, endpoints de auth, Swagger UI (12.4, 12.6) |
 | IE3.3.1 Autenticación JWT y roles | 6 % | Contraseña con BCrypt y enum `TipoUsuario` | Login, JWT con renovación, filtro de seguridad y permisos por rol (12.5) |
-| IE3.2.2 Integración backend-frontend | 6 % | CORS hacia `http://localhost:5173` | Llamadas `fetch`/`axios` desde React. **Frontend**, fuera de este apartado |
+| IE3.2.2 Integración backend-frontend | 6 % | CORS hacia `http://localhost:5173` y `:8081` | Llamadas `fetch`/`axios` desde React. **Frontend**, fuera de este apartado |
 | IE3.3.2 Sesión en el frontend | 6 % | Sesión simulada en `sessionStorage` | Guardar el token y mantenerlo al recargar. **Frontend** |
 | IE3.3.3 Restricciones en el frontend | 6 % | `RutaProtegida` por rol simulado | Basarlo en el rol del token. **Frontend** |
 
@@ -852,7 +861,7 @@ Roles: Admin (`ADMIN`), Logística (`LOGISTICA`, el «Vendedor» del enunciado) 
   `auth`, los `GET` de categorías y productos y `POST /boletas`.
 - Sin token o con token inválido o vencido: 401. Con un rol sin permiso: 403. Ambos con el formato
   `ErrorResponse` de la sección 11.4.
-- CORS debe permitir el encabezado `Authorization` desde `http://localhost:5173`.
+- CORS debe permitir el encabezado `Authorization` desde los orígenes del frontend (`http://localhost:5173` y `http://localhost:8081`).
 
 ### 12.6 Swagger
 
