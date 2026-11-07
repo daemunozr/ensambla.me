@@ -41,6 +41,9 @@ class UsuarioServiceTest {
 
     private UsuarioService servicio;
 
+    // RUN del administrador que tiene la sesion en las pruebas de edicion y borrado.
+    private static final String ADMIN = "190110222";
+
     @BeforeEach
     void preparar() {
         servicio = new UsuarioService(usuarioRepository, passwordEncoder, boletaRepository);
@@ -119,9 +122,49 @@ class UsuarioServiceTest {
         when(passwordEncoder.encode("cliente123")).thenReturn("hash-bcrypt");
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(llamada -> llamada.getArgument(0));
 
-        UsuarioResponse respuesta = servicio.actualizar("123456785", request("123456785", "camila@gmail.com"));
+        UsuarioResponse respuesta = servicio.actualizar("123456785", request("123456785", "camila@gmail.com"), ADMIN);
 
         assertEquals("camila@gmail.com", respuesta.correo());
+    }
+
+    @Test
+    void elCorreoSeGuardaEnMinusculasYSinEspacios() {
+        when(usuarioRepository.existsById("123456785")).thenReturn(false);
+        when(usuarioRepository.findByCorreo("camila@gmail.com")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("cliente123")).thenReturn("hash-bcrypt");
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(llamada -> llamada.getArgument(0));
+
+        UsuarioResponse respuesta = servicio.crear(request("123456785", " Camila@GMAIL.com "));
+
+        assertEquals("camila@gmail.com", respuesta.correo());
+    }
+
+    @Test
+    void nadiePuedeCambiarElRolDeSuPropiaCuenta() {
+        Usuario admin = new Usuario();
+        admin.setRun(ADMIN);
+        admin.setTipoUsuario(TipoUsuario.ADMIN);
+        when(usuarioRepository.findById(ADMIN)).thenReturn(Optional.of(admin));
+
+        // request() pide el rol CLIENTE.
+        assertThrows(ReglaNegocioException.class, () -> servicio.actualizar(ADMIN, request(ADMIN, "admin@duoc.cl"), ADMIN));
+
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void laPropiaCuentaSePuedeEditarSiConservaElRol() {
+        Usuario cliente = new Usuario();
+        cliente.setRun("123456785");
+        cliente.setTipoUsuario(TipoUsuario.CLIENTE);
+        when(usuarioRepository.findById("123456785")).thenReturn(Optional.of(cliente));
+        when(usuarioRepository.findByCorreo("camila@gmail.com")).thenReturn(Optional.of(cliente));
+        when(passwordEncoder.encode("cliente123")).thenReturn("hash-bcrypt");
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(llamada -> llamada.getArgument(0));
+
+        UsuarioResponse respuesta = servicio.actualizar("123456785", request("123456785", "camila@gmail.com"), "123456785");
+
+        assertEquals(TipoUsuario.CLIENTE, respuesta.tipoUsuario());
     }
 
     @Test
@@ -131,7 +174,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findById("123456785")).thenReturn(Optional.of(existente));
         when(boletaRepository.existsByUsuarioRun("123456785")).thenReturn(true);
 
-        assertThrows(ReglaNegocioException.class, () -> servicio.eliminar("123456785"));
+        assertThrows(ReglaNegocioException.class, () -> servicio.eliminar("123456785", ADMIN));
 
         verify(usuarioRepository, never()).delete(any());
     }
@@ -142,9 +185,20 @@ class UsuarioServiceTest {
         existente.setRun("123456785");
         when(usuarioRepository.findById("123456785")).thenReturn(Optional.of(existente));
 
-        servicio.eliminar("123456785");
+        servicio.eliminar("123456785", ADMIN);
 
         verify(usuarioRepository).delete(existente);
+    }
+
+    @Test
+    void nadiePuedeEliminarSuPropiaCuenta() {
+        Usuario admin = new Usuario();
+        admin.setRun(ADMIN);
+        when(usuarioRepository.findById(ADMIN)).thenReturn(Optional.of(admin));
+
+        assertThrows(ReglaNegocioException.class, () -> servicio.eliminar(ADMIN, ADMIN));
+
+        verify(usuarioRepository, never()).delete(any());
     }
 
     // --- Edicion del perfil propio ---

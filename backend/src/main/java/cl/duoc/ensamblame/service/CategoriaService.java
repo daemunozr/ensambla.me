@@ -45,8 +45,16 @@ public class CategoriaService {
         return aResponse(categoriaRepository.save(categoria));
     }
 
+    /**
+     * No se elimina una categoria con productos ni una con "orden": es un paso del asistente de armado,
+     * que en modo equipo completo exige una opcion en cada paso.
+     */
     public void eliminar(String codigo) {
         Categoria categoria = buscar(codigo);
+        if (categoria.getOrden() != null) {
+            throw new ReglaNegocioException("La categoria " + categoria.getNombre() + " es el paso "
+                    + categoria.getOrden() + " del asistente de armado y no se puede eliminar.");
+        }
         if (productoRepository.existsByCategoriaCodigo(codigo)) {
             throw new ReglaNegocioException("No se puede eliminar la categoria " + codigo + ": tiene productos.");
         }

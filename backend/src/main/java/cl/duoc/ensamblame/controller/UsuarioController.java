@@ -84,25 +84,25 @@ public class UsuarioController {
     }
 
     @Operation(summary = "Edita un usuario",
-            description = "Requiere rol ADMIN. El RUN no cambia: manda el de la ruta.")
+            description = "Requiere rol ADMIN. El RUN no cambia: manda el de la ruta. Nadie puede cambiar el rol de su propia cuenta.")
     @ApiResponse(responseCode = "200", description = "Usuario actualizado")
     @ApiResponse(responseCode = "400", description = "Datos invalidos")
     @ApiResponse(responseCode = "404", description = "No existe el usuario")
-    @ApiResponse(responseCode = "409", description = "El correo ya lo usa otra cuenta")
+    @ApiResponse(responseCode = "409", description = "El correo ya lo usa otra cuenta, o se intenta cambiar el rol de la propia cuenta")
     @PutMapping("/{run}")
     public ResponseEntity<UsuarioResponse> actualizar(@PathVariable String run,
-            @Valid @RequestBody UsuarioRequest request) {
-        return ResponseEntity.ok(usuarioService.actualizar(run, request));
+            @Valid @RequestBody UsuarioRequest request, @AuthenticationPrincipal UsuarioAutenticado actual) {
+        return ResponseEntity.ok(usuarioService.actualizar(run, request, actual.run()));
     }
 
     @Operation(summary = "Elimina un usuario",
-            description = "Requiere rol ADMIN. No se puede eliminar si tiene boletas.")
+            description = "Requiere rol ADMIN. No se puede eliminar la propia cuenta ni un usuario con boletas.")
     @ApiResponse(responseCode = "204", description = "Usuario eliminado")
     @ApiResponse(responseCode = "404", description = "No existe el usuario")
-    @ApiResponse(responseCode = "409", description = "El usuario tiene boletas")
+    @ApiResponse(responseCode = "409", description = "El usuario tiene boletas o es la cuenta en sesion")
     @DeleteMapping("/{run}")
-    public ResponseEntity<Void> eliminar(@PathVariable String run) {
-        usuarioService.eliminar(run);
+    public ResponseEntity<Void> eliminar(@PathVariable String run, @AuthenticationPrincipal UsuarioAutenticado actual) {
+        usuarioService.eliminar(run, actual.run());
         return ResponseEntity.noContent().build();
     }
 }

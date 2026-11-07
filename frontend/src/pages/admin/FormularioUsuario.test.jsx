@@ -163,6 +163,20 @@ describe("admin / FormularioUsuario", () => {
 			expect(usuario("123456785").correo).toBe("camila@gmail.com");
 		});
 
+		it("en la propia cuenta el tipo de usuario no se puede cambiar", () => {
+			montar("/admin/usuarios/190110222/editar");
+
+			expect(campo("Tipo de usuario")).toBeDisabled();
+			expect(campo("Tipo de usuario")).toHaveValue("ADMIN");
+			expect(screen.getByText("No puedes cambiar el rol de tu propia cuenta.")).toBeInTheDocument();
+		});
+
+		it("en la cuenta de otro usuario el tipo si se puede cambiar", () => {
+			montar("/admin/usuarios/123456785/editar");
+
+			expect(campo("Tipo de usuario")).toBeEnabled();
+		});
+
 		it("un RUN que no existe avisa al abrir", () => {
 			montar("/admin/usuarios/999999999/editar");
 

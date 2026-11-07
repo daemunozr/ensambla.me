@@ -45,9 +45,7 @@ public class UsuarioService {
         if (usuarioRepository.existsById(run)) {
             throw new ReglaNegocioException("Ya existe un usuario con el RUN " + run + ".");
         }
-        if (usuarioRepository.findByCorreo(request.correo()).isPresent()) {
-            throw new ReglaNegocioException("Ya existe un usuario con el correo " + request.correo() + ".");
-        }
+        exigirCorreoLibre(normalizarCorreo(request.correo()), null);
 
         Usuario usuario = new Usuario();
         usuario.setRun(run);
@@ -55,16 +53,16 @@ public class UsuarioService {
         return aResponse(usuarioRepository.save(usuario));
     }
 
-    /** El RUN identifica al usuario y no cambia: se ignora el del cuerpo. */
-    public UsuarioResponse actualizar(String run, UsuarioRequest request) {
+    /**
+     * El RUN identifica al usuario y no cambia: se ignora el del cuerpo. "runSesion" es la cuenta que
+     * edita: nadie puede cambiar su propio rol, para no quedarse (ni dejar al sistema) sin administrador.
+     */
+    public UsuarioResponse actualizar(String run, UsuarioRequest request, String runSesion) {
         Usuario usuario = buscar(run);
-
-        // El correo puede repetirse solo si es el del propio usuario.
-        usuarioRepository.findByCorreo(request.correo()).ifPresent(otro -> {
-            if (!otro.getRun().equals(usuario.getRun())) {
-                throw new ReglaNegocioException("Ya existe un usuario con el correo " + request.correo() + ".");
-            }
-        });
+        if (usuario.getRun().equals(runSesion) && usuario.getTipoUsuario() != request.tipoUsuario()) {
+            throw new ReglaNegocioException("No puedes cambiar el rol de tu propia cuenta.");
+        }
+        exigirCorreoLibre(normalizarCorreo(request.correo()), usuario.getRun());
 
         copiarDatos(usuario, request);
         return aResponse(usuarioRepository.save(usuario));
@@ -76,12 +74,8 @@ public class UsuarioService {
      */
     public UsuarioResponse actualizarPerfil(String run, PerfilRequest request) {
         Usuario usuario = buscar(run);
-
-        usuarioRepository.findByCorreo(request.correo()).ifPresent(otro -> {
-            if (!otro.getRun().equals(usuario.getRun())) {
-                throw new ReglaNegocioException("Ya existe un usuario con el correo " + request.correo() + ".");
-            }
-        });
+        String correo = normalizarCorreo(request.correo());
+        exigirCorreoLibre(correo, usuario.getRun());
 
         if (request.contrasenaNueva() != null && !request.contrasenaNueva().isBlank()) {
             if (request.contrasenaActual() == null
@@ -93,7 +87,7 @@ public class UsuarioService {
 
         usuario.setNombre(request.nombre());
         usuario.setApellidos(request.apellidos());
-        usuario.setCorreo(request.correo());
+        usuario.setCorreo(correo);
         usuario.setFechaNacimiento(request.fechaNacimiento());
         usuario.setRegion(request.region());
         usuario.setComuna(request.comuna());
@@ -101,12 +95,30 @@ public class UsuarioService {
         return aResponse(usuarioRepository.save(usuario));
     }
 
-    public void eliminar(String run) {
+    /** No se elimina la cuenta con que se tiene la sesion ("runSesion") ni un usuario con boletas. */
+    public void eliminar(String run, String runSesion) {
         Usuario usuario = buscar(run);
+        if (usuario.getRun().equals(runSesion)) {
+            throw new ReglaNegocioException("No puedes eliminar tu propia cuenta mientras tienes la sesion iniciada.");
+        }
         if (boletaRepository.existsByUsuarioRun(usuario.getRun())) {
             throw new ReglaNegocioException("No se puede eliminar el usuario " + run + ": tiene boletas.");
         }
         usuarioRepository.delete(usuario);
+    }
+
+    /** Los correos se guardan y se buscan en minusculas, para que "Camila@Gmail.com" sea la misma cuenta. */
+    public static String normalizarCorreo(String correo) {
+        return correo == null ? null : correo.trim().toLowerCase();
+    }
+
+    // El correo puede repetirse solo si es el de la propia cuenta ("runPropio"; null al crear).
+    private void exigirCorreoLibre(String correo, String runPropio) {
+        usuarioRepository.findByCorreo(correo).ifPresent(otro -> {
+            if (!otro.getRun().equals(runPropio)) {
+                throw new ReglaNegocioException("Ya existe un usuario con el correo " + correo + ".");
+            }
+        });
     }
 
     private Usuario buscar(String run) {
@@ -118,7 +130,7 @@ public class UsuarioService {
     private void copiarDatos(Usuario usuario, UsuarioRequest request) {
         usuario.setNombre(request.nombre());
         usuario.setApellidos(request.apellidos());
-        usuario.setCorreo(request.correo());
+        usuario.setCorreo(normalizarCorreo(request.correo()));
         usuario.setContrasena(passwordEncoder.encode(request.contrasena()));
         usuario.setFechaNacimiento(request.fechaNacimiento());
         usuario.setRegion(request.region());

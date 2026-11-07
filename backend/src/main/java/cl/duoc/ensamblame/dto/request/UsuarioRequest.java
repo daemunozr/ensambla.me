@@ -30,6 +30,7 @@ public record UsuarioRequest(
         @NotBlank(message = "El correo es obligatorio.")
         @Size(max = 100, message = "El correo admite hasta 100 caracteres.")
         @Pattern(regexp = "[^@\\s]+@(duoc\\.cl|profesor\\.duoc\\.cl|gmail\\.com)",
+                flags = Pattern.Flag.CASE_INSENSITIVE,
                 message = "Solo se aceptan los dominios duoc.cl, profesor.duoc.cl y gmail.com.")
         @Schema(description = "Correo (dominios duoc.cl, profesor.duoc.cl o gmail.com)", example = "valentina@gmail.com")
         String correo,
@@ -44,10 +45,12 @@ public record UsuarioRequest(
         LocalDate fechaNacimiento,
 
         @NotBlank(message = "La region es obligatoria.")
+        @Size(max = 10, message = "La region es un codigo de hasta 10 caracteres, como RM.")
         @Schema(description = "Codigo de la region", example = "RM")
         String region,
 
         @NotBlank(message = "La comuna es obligatoria.")
+        @Size(max = 10, message = "La comuna es un codigo de hasta 10 caracteres, como RM-02.")
         @Schema(description = "Codigo de la comuna", example = "RM-02")
         String comuna,
 

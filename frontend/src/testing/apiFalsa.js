@@ -255,6 +255,9 @@ function atender(metodo, ruta, cuerpo, yo) {
 			return respuesta(200, mapa(existente));
 		}
 		if (metodo === "DELETE") {
+			if (recurso === "categorias" && existente.orden) {
+				return error(409, `La categoria ${existente.nombre} es el paso ${existente.orden} del asistente de armado y no se puede eliminar.`);
+			}
 			if (recurso === "categorias" && bd.productos.some((p) => p.categoria === id)) {
 				return error(409, `No se puede eliminar la categoria ${id}: tiene productos.`);
 			}
@@ -300,11 +303,15 @@ function atender(metodo, ruta, cuerpo, yo) {
 		}
 		if (!existente) return error(404, `No existe el usuario ${id}.`);
 		if (metodo === "PUT") {
+			if (existente.run === yo.run && cuerpo.tipoUsuario !== existente.tipoUsuario) {
+				return error(409, "No puedes cambiar el rol de tu propia cuenta.");
+			}
 			if (!correoLibre(cuerpo.correo, existente.run)) return error(409, `Ya existe un usuario con el correo ${cuerpo.correo}.`);
 			Object.assign(existente, usuarioDesde(cuerpo, existente));
 			return respuesta(200, usuarioApi(existente));
 		}
 		if (metodo === "DELETE") {
+			if (existente.run === yo.run) return error(409, "No puedes eliminar tu propia cuenta mientras tienes la sesion iniciada.");
 			if (bd.ordenes.some((o) => o.cliente === existente.run)) {
 				return error(409, `No se puede eliminar el usuario ${existente.run}: tiene boletas.`);
 			}

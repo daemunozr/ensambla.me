@@ -20,7 +20,10 @@ export function fecha(iso) {
 	return `${dia}-${mes}-${ano}`;
 }
 
-/** Fecha de hoy (o de "ahora") en hora local como AAAA-MM-DD. toISOString() usa UTC y cambiaria de dia de noche. */
+/**
+ * Fecha de hoy (o de "ahora") en hora local como AAAA-MM-DD. toISOString() usa UTC y cambiaria de dia de noche.
+ * La fecha de una boleta real la pone la API; esta la usa la API falsa de las pruebas (testing/apiFalsa.js).
+ */
 export function fechaLocal(ahora = new Date()) {
 	const dos = (n) => String(n).padStart(2, "0");
 	return `${ahora.getFullYear()}-${dos(ahora.getMonth() + 1)}-${dos(ahora.getDate())}`;

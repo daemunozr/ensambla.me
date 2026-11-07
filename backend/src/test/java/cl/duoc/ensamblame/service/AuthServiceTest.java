@@ -77,6 +77,19 @@ class AuthServiceTest {
     }
 
     @Test
+    void elLoginAceptaElCorreoConMayusculasYEspacios() {
+        when(authenticationManager.authenticate(any())).thenReturn(org.mockito.Mockito.mock(Authentication.class));
+        when(usuarioRepository.findByCorreo("camila@gmail.com")).thenReturn(Optional.of(usuario(TipoUsuario.CLIENTE)));
+
+        TokenResponse respuesta = servicio.login(new LoginRequest(" Camila@GMAIL.com ", "cliente123"));
+
+        ArgumentCaptor<Authentication> credenciales = ArgumentCaptor.forClass(Authentication.class);
+        verify(authenticationManager).authenticate(credenciales.capture());
+        assertEquals("camila@gmail.com", credenciales.getValue().getName());
+        assertEquals("123456785", respuesta.run());
+    }
+
+    @Test
     void conUnaContrasenaIncorrectaElErrorNoDiceQueFallo() {
         when(authenticationManager.authenticate(any())).thenThrow(new BadCredentialsException("Bad credentials"));
 

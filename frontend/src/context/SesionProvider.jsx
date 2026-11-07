@@ -4,7 +4,7 @@
  * Las funciones de apoyo y el hook useSesion viven en context/sesion.js.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { usuarioDeApi, perfilParaApi } from "../services/adaptadores.js";
+import { correoParaApi, usuarioDeApi, perfilParaApi } from "../services/adaptadores.js";
 import * as api from "../services/recursos.js";
 import { EVENTO_SESION_EXPIRADA, SesionContext, borrarSesion, guardarSesion, leerSesion } from "./sesion.js";
 
@@ -23,7 +23,7 @@ export default function SesionProvider({ children }) {
 	 * el mensaje de credenciales no revela si fallo el correo o la contrasena (RF-02 CA3).
 	 */
 	const iniciar = useCallback(async (correo, contrasena) => {
-		const respuesta = await api.iniciarSesion(String(correo).trim(), contrasena);
+		const respuesta = await api.iniciarSesion(correoParaApi(correo), contrasena);
 		if (!respuesta.ok) {
 			return {
 				ok: false,
@@ -38,7 +38,7 @@ export default function SesionProvider({ children }) {
 			run: tokens.run,
 			nombre: tokens.nombre,
 			apellidos: "",
-			correo: String(correo).trim().toLowerCase(),
+			correo: correoParaApi(correo),
 			rol: tokens.rol,
 		};
 		// El token ya sirve para pedir la cuenta completa (el login no trae apellidos ni correo).

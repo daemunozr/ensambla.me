@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import cl.duoc.ensamblame.dto.response.ErrorResponse;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -60,6 +61,16 @@ class ResponseEntityHandlerTest {
         assertEquals(HttpStatus.NOT_FOUND, respuesta.getStatusCode());
         assertEquals(404, cuerpoDe(respuesta).estado());
         assertEquals("No existe la ruta /api/nada.", cuerpoDe(respuesta).mensaje());
+    }
+
+    @Test
+    void unChoqueDeIntegridadEnLaBaseResponde409SinFiltrarElDetalle() {
+        ResponseEntity<Object> respuesta = handler.handleIntegridad(
+                new DataIntegrityViolationException("Duplicate entry 'ORD-2026-0004' for key 'PRIMARY'"));
+
+        assertEquals(HttpStatus.CONFLICT, respuesta.getStatusCode());
+        assertEquals(409, cuerpoDe(respuesta).estado());
+        assertFalse(cuerpoDe(respuesta).mensaje().contains("Duplicate"));
     }
 
     @Test

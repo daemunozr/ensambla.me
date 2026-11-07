@@ -16,7 +16,9 @@ export function desgloseIva(total) {
 
 /**
  * Numero de la proxima orden: ORD-AAAA-NNNN, correlativo dentro del ano de la
- * fecha (AAAA-MM-DD). Los numeros que no siguen el formato se ignoran.
+ * fecha (AAAA-MM-DD). Los numeros que no siguen el formato se ignoran. Las
+ * boletas reales las numera la API (BoletaService); esta copia de la regla la
+ * usa la API falsa de las pruebas (testing/apiFalsa.js).
  */
 export function siguienteNumero(ordenes, fecha) {
 	const ano = String(fecha).slice(0, 4);

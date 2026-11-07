@@ -166,7 +166,7 @@ describe("cliente HTTP", () => {
 			iniciarSesion();
 			const alExpirar = vi.fn();
 			window.addEventListener(EVENTO_SESION_EXPIRADA, alExpirar);
-			responder(json(401, {}), json(401, { mensaje: "el token es invalido" }));
+			responder(json(401, {}), json(401, { mensaje: "el token es invalido" }), json(401, { mensaje: "Falta la sesion." }));
 
 			const resultado = await obtener("/boletas");
 			window.removeEventListener(EVENTO_SESION_EXPIRADA, alExpirar);
@@ -178,7 +178,7 @@ describe("cliente HTTP", () => {
 
 		it("si la llamada repetida vuelve a dar 401 tambien termina la sesion", async () => {
 			iniciarSesion();
-			responder(json(401, {}), renovado(), json(401, {}));
+			responder(json(401, {}), renovado(), json(401, {}), json(401, {}));
 
 			await obtener("/boletas");
 
@@ -204,11 +204,33 @@ describe("cliente HTTP", () => {
 
 		it("sin conexion durante la renovacion tambien termina la sesion", async () => {
 			iniciarSesion();
-			responder(json(401, {}), new TypeError("Failed to fetch"));
+			responder(json(401, {}), new TypeError("Failed to fetch"), json(401, {}));
 
 			await obtener("/boletas");
 
 			expect(window.sessionStorage.getItem("sesion")).toBeNull();
+		});
+
+		it("al terminar la sesion, un GET se repite sin token: el catalogo publico carga igual", async () => {
+			iniciarSesion();
+			const fetchMock = responder(json(401, {}), json(401, {}), json(200, [{ sku: "CPU-R5-7600" }]));
+
+			const resultado = await obtener("/productos");
+
+			expect(resultado).toEqual({ ok: true, estado: 200, datos: [{ sku: "CPU-R5-7600" }] });
+			expect(fetchMock).toHaveBeenCalledTimes(3);
+			expect(cabecera(fetchMock.mock.calls[2], "Authorization")).toBeUndefined();
+			expect(window.sessionStorage.getItem("sesion")).toBeNull();
+		});
+
+		it("al terminar la sesion, un POST no se repite: la compra no pasa a ser de invitado", async () => {
+			iniciarSesion();
+			const fetchMock = responder(json(401, {}), json(401, {}));
+
+			const resultado = await crear("/boletas", { lineas: [] });
+
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+			expect(resultado).toMatchObject({ ok: false, estado: 401 });
 		});
 
 		it("un 401 sin sesion no intenta renovar", async () => {

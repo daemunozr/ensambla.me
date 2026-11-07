@@ -24,6 +24,9 @@ services:
       APP_CORS_ORIGEN: ${CORS_ORIGEN:-http://localhost:8081,http://localhost:5173}
       # Swagger UI (http://localhost:8080/swagger-ui.html). Poner false para apagarlo, por ejemplo en produccion.
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      # Zona horaria de la JVM: fija la fecha y el correlativo de cada boleta. Sin ella, la imagen usa
+      # UTC y una compra despues de las 21:00 (hora de Chile) quedaria con la fecha del dia siguiente.
+      TZ: ${API_TZ:-America/Santiago}
     extra_hosts:
       # En Linux, host.docker.internal no existe por defecto; en Mac y Windows ya viene definido.
       - "host.docker.internal:host-gateway"

@@ -36,13 +36,13 @@ public class AuthService {
 
     /** Valida correo y contrasena (BCrypt) y entrega los tokens. El mismo error sirve para ambos fallos. */
     public TokenResponse login(LoginRequest request) {
+        String correo = UsuarioService.normalizarCorreo(request.correo());
         try {
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.correo(), request.contrasena()));
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(correo, request.contrasena()));
         } catch (AuthenticationException e) {
             throw new BadCredentialsException("Correo o contrasena incorrectos.");
         }
-        Usuario usuario = usuarioRepository.findByCorreo(request.correo())
+        Usuario usuario = usuarioRepository.findByCorreo(correo)
                 .orElseThrow(() -> new BadCredentialsException("Correo o contrasena incorrectos."));
         return aTokens(usuario);
     }

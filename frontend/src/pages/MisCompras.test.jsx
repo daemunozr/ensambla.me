@@ -1,5 +1,5 @@
 import { screen, within } from "@testing-library/react";
-import { orden, ordenesDe, totalOrden, usuario } from "../data/datos.js";
+import { orden, ordenes, totalOrden, usuario } from "../data/datos.js";
 import { precio } from "../utils/formato.js";
 import { limpiarAlmacenamiento, renderConProviders, sesionDe } from "../testUtils.jsx";
 import MisCompras from "./MisCompras.jsx";
@@ -22,7 +22,9 @@ describe("MisCompras", () => {
 
 	it("resume la cantidad de compras y el gasto total", () => {
 		montar("123456785");
-		const gasto = ordenesDe("123456785").reduce((suma, o) => suma + totalOrden(o.numero), 0);
+		const gasto = ordenes()
+			.filter((o) => o.cliente === "123456785")
+			.reduce((suma, o) => suma + totalOrden(o.numero), 0);
 
 		expect(screen.getByText(`2 compras por un total de ${precio(gasto)}.`)).toBeInTheDocument();
 	});

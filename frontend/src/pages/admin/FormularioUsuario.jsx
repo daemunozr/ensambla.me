@@ -5,6 +5,7 @@ import Campo from "../../components/Campo.jsx";
 import CampoCorreo from "../../components/CampoCorreo.jsx";
 import SelectRegionComuna from "../../components/SelectRegionComuna.jsx";
 import { useDatos } from "../../context/datos.js";
+import { useSesion } from "../../context/sesion.js";
 import { comuna, roles, usuario as buscarUsuario } from "../../data/datos.js";
 import { useFormulario } from "../../hooks/useFormulario.js";
 import { useTitulo } from "../../hooks/useTitulo.js";
@@ -49,7 +50,10 @@ const valoresDe = (existente) => ({
 function Formulario({ run }) {
 	const navegar = useNavigate();
 	const { crearUsuario, actualizarUsuario } = useDatos();
+	const { sesion } = useSesion();
 	const existente = run ? buscarUsuario(run) : null;
+	// Nadie cambia el rol de su propia cuenta: podria quedarse (y dejar al sistema) sin administrador.
+	const esPropia = Boolean(existente) && existente.run === sesion?.run;
 	const formulario = useFormulario(existente ? valoresDe(existente) : VACIO, DEFINICION);
 	const { registrar, estado, errores, enviar } = formulario;
 	const [aviso, setAviso] = useState(
@@ -153,7 +157,12 @@ function Formulario({ run }) {
 							etiqueta="Tipo de usuario"
 							obligatorio
 							autoComplete="off"
-							sugerencia="Determina a que secciones accede al iniciar sesion."
+							disabled={esPropia}
+							sugerencia={
+								esPropia
+									? "No puedes cambiar el rol de tu propia cuenta."
+									: "Determina a que secciones accede al iniciar sesion."
+							}
 							{...props("tipoUsuario")}
 						>
 							<option value="">Selecciona un tipo</option>

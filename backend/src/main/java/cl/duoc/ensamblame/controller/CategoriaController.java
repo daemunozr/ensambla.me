@@ -72,10 +72,10 @@ public class CategoriaController {
     }
 
     @Operation(summary = "Elimina una categoria",
-            description = "Requiere rol ADMIN. No se puede eliminar si tiene productos.")
+            description = "Requiere rol ADMIN. No se puede eliminar si tiene productos o es un paso del asistente de armado (tiene orden).")
     @ApiResponse(responseCode = "204", description = "Categoria eliminada")
     @ApiResponse(responseCode = "404", description = "No existe la categoria")
-    @ApiResponse(responseCode = "409", description = "La categoria tiene productos")
+    @ApiResponse(responseCode = "409", description = "La categoria tiene productos o es un paso del asistente")
     @SecurityRequirement(name = "bearerAuth")
     @DeleteMapping("/{codigo}")
     public ResponseEntity<Void> eliminar(@PathVariable String codigo) {

@@ -45,10 +45,12 @@ public record ProductoRequest(
         @Schema(description = "Stock bajo el cual se considera critico (opcional)", example = "5")
         Integer stockCritico,
 
+        @Size(max = 255, message = "La imagen admite hasta 255 caracteres.")
         @Schema(description = "Ruta de la imagen (opcional)", example = "resources/img/productos/CPU-R5-7600.webp")
 
         String imagen,
 
+        @Size(max = 255, message = "El video admite hasta 255 caracteres.")
         @Schema(description = "Enlace de un video (opcional)", example = "")
 
         String video,

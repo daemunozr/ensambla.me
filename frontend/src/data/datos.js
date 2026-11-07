@@ -158,7 +158,6 @@ export const orden = (numero) => {
 	const reciente = ultimaBoleta();
 	return reciente?.orden.numero === numero ? reciente.orden : undefined;
 };
-export const ordenesDe = (run) => ordenes().filter((o) => o.cliente === run);
 export const itemsDeOrden = (numero) => {
 	const cargados = copia.itemsOrden.filter((i) => i.orden === numero);
 	if (cargados.length) return cargados;

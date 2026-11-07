@@ -2,6 +2,7 @@ import {
 	boletaDeApi,
 	boletaParaApi,
 	categoriaParaApi,
+	correoParaApi,
 	perfilParaApi,
 	productoDeApi,
 	productoParaApi,
@@ -80,6 +81,15 @@ describe("usuarios", () => {
 	it("el perfil con cambio de contrasena manda las dos", () => {
 		expect(perfilParaApi({ ...camila, contrasenaActual: "a", contrasenaNueva: "b" })).toMatchObject({ contrasenaActual: "a", contrasenaNueva: "b" });
 	});
+
+	it("el correo viaja en minusculas y sin espacios, igual a como se valido", () => {
+		const escrito = { ...camila, correo: " Camila@GMAIL.com " };
+
+		expect(usuarioParaApi(escrito).correo).toBe("camila@gmail.com");
+		expect(registroParaApi(escrito).correo).toBe("camila@gmail.com");
+		expect(perfilParaApi(escrito).correo).toBe("camila@gmail.com");
+		expect(correoParaApi(undefined)).toBe("");
+	});
 });
 
 describe("boletas", () => {
@@ -120,5 +130,16 @@ describe("boletas", () => {
 			nombre: "Pedro", correo: "p@gmail.com", direccion: "Calle 1", comuna: "RM-01", entrega: "RETIRO", medioPago: "Sin pago",
 			lineas: [{ sku: "A", cantidad: 3 }, { sku: "B", cantidad: 2 }],
 		});
+	});
+
+	it("hacia la API: el correo del comprador va en minusculas", () => {
+		const cuerpo = boletaParaApi({
+			comprador: { nombre: "Pedro", correo: "Pedro@Gmail.com", direccion: "Calle 1", comuna: "RM-01" },
+			entrega: "RETIRO",
+			medioPago: "Sin pago",
+			lineas: [{ linea: 1, producto: "A", cantidad: 1, armado: null }],
+		});
+
+		expect(cuerpo.correo).toBe("pedro@gmail.com");
 	});
 });

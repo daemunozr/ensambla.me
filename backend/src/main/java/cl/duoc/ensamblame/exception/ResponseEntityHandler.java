@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -74,6 +75,17 @@ public class ResponseEntityHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<Object> handleNoAutenticado(AuthenticationException ex) {
         return crear(HttpStatus.UNAUTHORIZED, ex.getMessage(), null);
+    }
+
+    /**
+     * La base rechazo la escritura por una restriccion (clave o correo repetidos). Ocurre cuando dos
+     * peticiones simultaneas pasan las validaciones a la vez, como dos compras que piden el mismo
+     * numero de boleta: 409, para que el cliente reintente.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Object> handleIntegridad(DataIntegrityViolationException ex) {
+        log.warn("Escritura rechazada por la base: {}", ex.getMostSpecificCause().getMessage());
+        return crear(HttpStatus.CONFLICT, "No se pudo guardar: los datos chocan con otro registro. Intenta de nuevo.", null);
     }
 
     /** Cualquier otro error: se registra en el log y el cliente solo recibe un mensaje general. */

@@ -1,10 +1,10 @@
 # Ensambla.me
 
 Tienda online de componentes de PC con asistente de armado guiado por compatibilidad.
-Frontend React + Vite y, aparte, un backend Spring Boot con MariaDB (sección 11).
-Duoc UC · DSY1104 Desarrollo Fullstack II · Entrega II.
-ERS rev. 3.1 (29-10-2026), Daniel Muñoz. La versión formal IEEE 830 está en
-`ERS - Ensambla.me.docx`.
+Frontend React + Vite que consume una API REST Spring Boot con MariaDB (sección 11).
+Duoc UC · DSY1104 Desarrollo Fullstack II · Evaluación 3.
+ERS rev. 3.2 (07-11-2026), Daniel Muñoz. La versión formal IEEE 830 (`ERS - Ensambla.me.docx`) es un
+entregable aparte (sección 12.1).
 
 ## Índice
 
@@ -25,7 +25,7 @@ ERS rev. 3.1 (29-10-2026), Daniel Muñoz. La versión formal IEEE 830 está en
 - [9. Desviaciones respecto del Anexo 1](#9-desviaciones-respecto-del-anexo-1)
 - [10. Pruebas](#10-pruebas)
 - [11. Backend (API REST)](#11-backend-api-rest)
-- [12. Evaluación 3: pendiente en backend y base de datos](#12-evaluación-3-pendiente-en-backend-y-base-de-datos)
+- [12. Evaluación 3: estado y entregables](#12-evaluación-3-estado-y-entregables)
 
 ## 1. Ejecución
 
@@ -42,7 +42,9 @@ npm run lint
 ```
 
 También se puede servir compilada con Docker, sin tener Node instalado: `docker compose up -d --build`
-en `frontend/` (http://localhost:8081). No depende de las otras partes (ver [11.2](#112-cómo-ejecutarlo)).
+en `frontend/` (http://localhost:8081). El contenedor compila y arranca sin las otras partes, pero la tienda
+necesita la API en marcha: sin ella muestra «No pudimos cargar la tienda» con un botón para reintentar
+(ver [11.2](#112-cómo-ejecutarlo)).
 
 La aplicación usa la API de `backend/` (ver [11.2](#112-cómo-ejecutarlo) y [12.8](#128-integración-del-frontend-con-la-api)):
 catálogo, categorías, usuarios, boletas, registro, login y compra salen de ella. Para desarrollar hace falta
@@ -117,7 +119,8 @@ src/
 ├── logic/            armado, busqueda, carrito, catalogo, checkout, ordenes, pago,
 │                     precios, reportes, stock (reglas puras, sin DOM ni almacenamiento)
 ├── services/         api.js (fetch, token y renovación), recursos.js (un método por endpoint), adaptadores.js
-├── data/             datos.js (copia en memoria y escrituras), semillas.js (regiones, comunas, compatibilidad, blogs)
+├── data/             datos.js (copia en memoria y escrituras), semillas.js (regiones, comunas, compatibilidad, blogs
+│                     y los datos con que parte la API simulada de las pruebas)
 ├── testing/          apiFalsa.js (la API simulada con que corren las pruebas)
 ├── utils/            formato, recursos, validaciones
 ├── styles/style.css
@@ -153,6 +156,7 @@ muestra «Acceso denegado» y no renderiza la vista. Tras iniciar sesión, el Ad
 ```
 pages → components    pages → context       context → data
 pages / context → logic    pages / components → hooks, utils
+data / context → services (fetch)    services → context/sesion (lee y renueva los tokens)
 ```
 
 | Carpeta | Archivos | Objetivo |
@@ -222,7 +226,9 @@ al nivel superior de un componente o hook (nunca en `if`, bucles ni funciones an
 
 ## 4. Modelo de datos
 
-Nombres de campo idénticos a los de `semillas.js`. `"req"` = obligatorio.
+Modelo lógico de la interfaz: los nombres de campo que usan las páginas y `logic/`. La API guarda los
+mismos datos con dos nombres distintos (`usuario` en vez de `cliente` y `detalles` en vez de
+`ITEM_ORDEN`, ver [12.3](#123-base-de-datos)), y `services/adaptadores.js` los traduce. `"req"` = obligatorio.
 
 ```mermaid
 erDiagram
@@ -326,12 +332,13 @@ erDiagram
 
 - Las escrituras de `datos.js` son asíncronas: llaman a la API (que aplica las reglas de negocio) y devuelven
   `{ ok, registro, mensaje }`; con `ok` en `false` no cambian nada y `mensaje` es el del servidor.
-- Claves: comuna `RM-02` (región más índice); orden `ORD-2026-0001` (correlativo por año de la
-  compra); armado `ARM-<Date.now() en base 36>`; RUN con DV, sin puntos ni guion. Fechas ISO.
+- Claves: comuna `RM-02` (región más índice); orden `ORD-2026-0001` (la numera la API, correlativo por
+  año de la compra); armado `ARM-<Date.now() en base 36>`; RUN con DV, sin puntos ni guion. Fechas ISO.
 - Los precios incluyen IVA (19 %). La orden guarda el precio vigente de cada ítem, porque el del
   producto puede cambiar después.
-- Una orden de invitado tiene `cliente` vacío y se ve con su enlace; las de una cuenta las ven su
-  dueño y el personal (`logic/ordenes.js: puedeVerOrden`).
+- Una orden de invitado tiene `cliente` vacío. La API no deja consultarla después (`GET /boletas` exige
+  sesión), así que solo se ve justo después de comprar, en la misma pestaña (`sessionStorage.ultimaBoleta`).
+  Las de una cuenta las ven su dueño y el personal (`logic/ordenes.js: puedeVerOrden`).
 - `compatibilidad` se genera con `flatMap` desde `paresDeCompatibilidad` (SKU → SKU admisibles de
   la categoría siguiente). Armado no es una relación: es el valor `armado` que comparten las líneas
   de un grupo.
@@ -343,12 +350,13 @@ erDiagram
 Es en tiempo real (al escribir y al salir del campo), con el error junto al campo. Al enviar se
 validan todos y se enfoca el primero inválido. Cada campo con formato muestra una sugerencia
 (`form-text`) antes de cualquier error. Reglas en `utils/validaciones.js`, aplicadas por
-`hooks/useFormulario.js`.
+`hooks/useFormulario.js`. La API vuelve a validar lo mismo (sección 11.5) y responde 400 con el error de
+cada campo.
 
 | Campo                            | Regla                                                                                      |
 |----------------------------------|--------------------------------------------------------------------------------------------|
 | RUN                              | Requerido, 7–9 caracteres sin puntos ni guion, DV módulo 11. Válido: `190110222`           |
-| Correo                           | Requerido, ≤ 100, dominio `@duoc.cl`, `@profesor.duoc.cl` o `@gmail.com` (con `datalist`)  |
+| Correo                           | Requerido, ≤ 100, dominio `@duoc.cl`, `@profesor.duoc.cl` o `@gmail.com` (con `datalist`). Sin importar mayúsculas: se envía y se guarda en minúsculas |
 | Contraseña                       | Requerida, 4–10, `type="password"`. Al cambiarla: actual, nueva y repetición; la nueva coincide y difiere de la actual |
 | Nombre / apellidos               | Requeridos, ≤ 50 / ≤ 100                                                                   |
 | Región → comuna                  | Requeridas; la comuna se filtra por la región                                              |
@@ -425,13 +433,16 @@ Listado con imagen, título y descripción corta; detalle con descripción larga
 2. Se rechazan SKU < 3 caracteres o repetido, precio < 0, descuento fuera de 0–90 o decimal, stock
    negativo o decimal, y producto sin categoría. El precio admite decimales y 0.
 3. Si `stock` ≤ `stockCritico`, el listado alerta. El `video` vacío no bloquea el guardado.
-4. Eliminar pide confirmación; las órdenes conservan su detalle y el carrito descarta la línea.
+4. Eliminar pide confirmación. Un producto que figura en alguna orden no se elimina (la API responde 409),
+   así la boleta conserva su detalle; si se elimina uno sin órdenes, el carrito descarta su línea.
 
 **RF-11 Mantenedor de Usuarios** · Administrador · `pages/admin/Usuarios.jsx`, `pages/admin/Usuario.jsx`, `pages/admin/FormularioUsuario.jsx`
 1. Buscar, crear, editar y eliminar, con las validaciones de RF-01; RUN o correo repetidos se rechazan.
 2. El select de tipo ofrece Administrador, Cliente y Administrador logístico (no existe en el registro público).
+   En la propia cuenta queda deshabilitado: nadie se cambia el rol a sí mismo (la API también lo rechaza).
 3. La ficha `/admin/usuarios/:run` muestra sus datos, sin contraseña, y su historial con enlace a cada boleta.
-4. Eliminar pide confirmación y se rechaza con la cuenta en sesión o con un usuario con órdenes.
+4. Eliminar pide confirmación y se rechaza con la cuenta en sesión o con un usuario con órdenes, tanto en
+   la interfaz como en la API (409).
 
 **RF-12 Productos, críticos y órdenes en lectura** · Logístico · `pages/admin/Productos.jsx`, `Criticos.jsx`, `Ordenes.jsx`, `Orden.jsx`
 Productos sin crear, editar ni eliminar. Órdenes con cliente, fecha, productos y total, búsqueda por
@@ -485,13 +496,13 @@ avisa. `/productos?categoria=…` titula la lista; un código inexistente se ign
    «Reintentar el pago» vuelve al checkout con los datos de envío (sin la tarjeta).
 4. La confirmación solo la ve quien puede ver esa orden; si no, «Orden no encontrada».
 
-**RF-22 Registrar la orden y mostrar la boleta** · Cliente, Administrador, Logístico · `data/datos.js (crearOrden)`, `logic/ordenes.js`, `components/Boleta.jsx`
+**RF-22 Registrar la orden y mostrar la boleta** · Cliente, Administrador, Logístico · `data/datos.js (crearOrden)`, `logic/ordenes.js`, `components/Boleta.jsx`; en el backend, `BoletaService`
 1. Cada compra aprobada crea una orden `ORD-AAAA-NNNN` con comprador, entrega, envío, medio de pago
-   y un ítem por producto con su precio vigente, y descuenta el stock. Se valida entera antes de
-   escribir: si algo falla no cambia nada.
+   y un ítem por producto con su precio vigente, y descuenta el stock. La API la valida entera antes de
+   escribir, en una sola transacción: si algo falla no cambia nada.
 2. La boleta muestra comprador (RUN o invitado), entrega, pago, detalle, subtotal, envío y total con
    IVA desglosado (neto + 19 %). Es simulada y se puede imprimir.
-3. Una orden conserva su detalle aunque el producto se elimine.
+3. Una orden conserva su detalle: un producto que figura en ella no se puede eliminar (RF-10).
 
 **RF-23 Gestionar mi perfil** · todos con sesión · `pages/Perfil.jsx`
 1. RUN y tipo no se editan. Se editan nombre, apellidos, correo, fecha de nacimiento, región, comuna
@@ -509,7 +520,8 @@ otra cuenta o de un invitado da «Orden no encontrada».
 1. Listado con código, nombre, paso del asistente y número de productos; crear, editar y eliminar.
 2. Código único de 3–30 (minúsculas, números, guiones) que no cambia al editar; nombre ≤ 50.
 3. Las nuevas aparecen en catálogo, filtros y ficha, pero no en el asistente.
-4. Eliminar pide confirmación y se rechaza si es un paso del asistente o tiene productos.
+4. Eliminar pide confirmación y se rechaza si es un paso del asistente o tiene productos (la interfaz
+   avisa sin llamar a la API, y la API también lo comprueba: 409).
 
 **RF-26 Productos críticos** · Administrador, Logístico · `pages/admin/Criticos.jsx`, `logic/stock.js`
 Lista los de `stock` ≤ `stockCritico`: primero los agotados, luego mayor faltante y por SKU. Cada fila
@@ -523,21 +535,25 @@ invitado se agrupa por correo); inventario valorizado a precio de lista y produc
 ## 7. Requisitos no funcionales
 
 **RNF-01 Rendimiento** · `vite.config.js`, `main.jsx`: cada vista carga en < 2 s con `npm run dev` o
-`preview`; el empaquetado pesa 432 kB de JS (125 kB comprimido) y 242 kB de CSS (34 kB). Solo hay
-peticiones del mismo origen y cambiar de vista no recarga la página.
+`preview`; el empaquetado pesa 437 kB de JS (127 kB comprimido) y 242 kB de CSS (34 kB). Las únicas
+peticiones a otro origen son las de la API (`VITE_API_URL`, autorizadas por CORS): el catálogo se pide una
+vez al abrir la app y cambiar de vista no recarga la página.
 
 **RNF-02 Seguridad** · `components/RutaProtegida.jsx`, `utils/validaciones.js`
 1. Una URL de admin sin sesión lleva al login; con rol Cliente o tras el logout se deniega. El
    logístico ve en el menú solo Productos, Críticos, Órdenes y Mi perfil (las demás opciones no
    existen en el DOM) y si abre por URL un formulario de crear o editar se deniega sin renderizarlo.
+   La API vuelve a comprobar el rol del token en cada ruta (401 o 403, sección 12.5).
 2. Las contraseñas y el código de la tarjeta usan `type="password"`; un valor inválido da error antes
    de enviar, y RUN, correo y contraseña muestran sugerencia de formato.
 3. Tras iniciar sesión solo se respeta un destino del mismo sitio.
 
-**RNF-03 Fiabilidad** · `context/`, `data/coleccion.js`
-Sin errores de JS en consola. Un error de validación no impide navegar. Un `carrito`, sesión o
-colección corruptos se descartan (vacío, sin sesión y semilla). Si el almacenamiento está bloqueado
-o lleno, el error queda en consola y la aplicación sigue usable.
+**RNF-03 Fiabilidad** · `context/`, `services/api.js`
+Sin errores de JS en consola. Un error de validación no impide navegar. Un `carrito` o una sesión
+corruptos se descartan (carrito vacío y sin sesión). Si el almacenamiento está bloqueado o lleno, el
+error queda en consola y la aplicación sigue usable. Si la API no responde, la tienda muestra «No pudimos
+cargar la tienda» con «Reintentar». Una sesión cuyo token ya no se puede renovar se cierra sin bloquear el
+catálogo: la lectura se repite sin token.
 
 **RNF-04 Disponibilidad** · hosting: sitio accesible por su URL pública sin credenciales.
 
@@ -561,7 +577,7 @@ Catálogo, ofertas, armado y carrito llevan la barra de categorías. El home del
 indicadores (productos, críticos, usuarios, órdenes) y accesos a cada mantenedor.
 
 **RNF-09 Calidad y pruebas** · `src/**/*.test.js(x)`, `vite.config.js`
-835 pruebas en 90 archivos (Vitest y Testing Library, junto al archivo que prueban) que cubren
+844 pruebas en 90 archivos (Vitest y Testing Library, junto al archivo que prueban) que cubren
 renderizado, props, estado y eventos, con mocks (`vi.fn`, `vi.spyOn`, `vi.mock`). `npm run coverage`
 llega al 99 % de las sentencias de `src/` (excluye `main.jsx`, `semillas.js`, `creditos.js` y `testing/`).
 
@@ -571,7 +587,8 @@ llega al 99 % de las sentencias de `src/` (excluye `main.jsx`, `semillas.js`, `c
 - Pasarela de pago real y estados del pedido (preparación, despacho, entrega).
 - Recuperación de contraseña y verificación de correo.
 - Motor de compatibilidad real (socket, tipo de RAM, formato, potencia).
-- Pruebas de extremo a extremo en un navegador real.
+- Pruebas de extremo a extremo automatizadas (Playwright o Cypress): se hicieron a mano en Chrome
+  ([10](#pruebas-de-extremo-a-extremo-manuales)).
 
 ## 9. Desviaciones respecto del Anexo 1
 
@@ -590,6 +607,18 @@ Evaluación 2:
 - Se suman al panel los mantenedores de categorías, los críticos y los reportes.
 - El sitio de la Entrega I (HTML, CSS y JS sin framework) se eliminó (commit `743fd63`, el historial
   sigue en git). Auditoría del 26-10-2026: todo lo que hacía existe en React, sin brechas.
+
+Evaluación 3:
+
+- Un producto que figura en una boleta ya no se elimina (409). Antes la orden conservaba su detalle aunque
+  el producto se borrara; ahora la base exige la relación.
+- La boleta de un invitado solo se ve justo después de comprar, en la misma pestaña: la API no la entrega
+  sin sesión.
+- El rol «Vendedor» del enunciado es `LOGISTICA` («Administrador logístico») en la API y en la interfaz.
+- Región y comuna se guardan como códigos de texto (`RM`, `RM-02`), sin tablas propias. La compatibilidad
+  del asistente y los blogs siguen en `src/data/semillas.js`.
+- La tienda usa el catálogo que carga el backend (`CargaInicial`: 9 categorías y un producto por categoría),
+  no el de `semillas.js`, que queda solo para la API simulada de las pruebas.
 
 ## 10. Pruebas
 
@@ -610,15 +639,39 @@ páginas recorren el camino real (servicios, adaptadores y cliente HTTP) sin red
 | Grupo                                    | Archivos | Pruebas |
 |------------------------------------------|---------:|--------:|
 | Lógica y utilidades (`logic/`, `utils/`) |       13 |     223 |
-| Datos, servicios, contextos y hooks      |       12 |     138 |
+| Datos, servicios, contextos y hooks      |       12 |     147 |
 | Componentes (incluido `layout/`)         |       27 |     147 |
-| Páginas, panel y flujos                  |       36 |     284 |
+| Páginas, panel y flujos                  |       36 |     286 |
 | Casos límite (`ramas*.test.jsx`)         |        2 |      41 |
-| **Total**                                |   **90** | **835** |
+| **Total**                                |   **90** | **844** |
 
-Todas en verde. Cobertura de `src/`: 99,4 % de sentencias, 98,0 % de ramas, 100 % de funciones y 99,9 % de
-líneas (se excluyen `main.jsx`, `semillas.js`, `creditos.js` y `testing/`). Las pruebas del backend (JUnit 5 y
-Mockito) son aparte: `cd backend && mvn test`.
+Todas en verde. Cobertura de `src/`: 99,4 % de sentencias, 98,1 % de ramas, 100 % de funciones y 99,9 % de
+líneas (se excluyen `main.jsx`, `semillas.js`, `creditos.js` y `testing/`). Las 137 pruebas del backend
+(JUnit 5 y Mockito) son aparte: `cd backend && mvn test` (sección 11.5).
+
+### Pruebas de extremo a extremo (manuales)
+
+Hechas el 07-11-2026 en Chrome, con el backend en H2 en memoria (`mvn spring-boot:run` con el classpath de
+pruebas y la URL `jdbc:h2:mem`, así no se toca la base real) y `npm run dev` apuntando a él con
+`VITE_API_URL`. Cada flujo se comprobó en la interfaz y en la respuesta de la API.
+
+| Flujo | Resultado |
+|---|---|
+| Compra de un cliente con despacho | Boleta a nombre de su RUN, stock descontado y visible en «Mis compras» (solo las suyas) |
+| Compra de un invitado y recarga de la confirmación | La boleta se sigue viendo tras recargar (`ultimaBoleta`) |
+| Tarjeta rechazada (`4000 0000 0000 0002`) | Sin boleta y con el carrito intacto |
+| Retiro en tienda | Envío gratis en la boleta |
+| Registro | RUN repetido → 409 con mensaje; cuenta nueva y login con ella |
+| Perfil | Cambiar el correo mantiene la sesión al recargar (el correo anterior da 401); contraseña actual incorrecta → error; la nueva funciona y la anterior da 401 |
+| Panel del administrador | Producto: errores por campo (400), SKU repetido (409), crear y editar. Producto con boletas → 409. Categorías: crear, editar y eliminar. Usuarios: crear y editar (al editar se exige contraseña nueva) |
+| Logística (`bodega@duoc.cl`) | Productos y órdenes solo en lectura, sin Usuarios en el menú |
+| Cliente en `/admin` | «Acceso denegado» |
+| Token de acceso vencido | Se renueva solo y la vista sigue funcionando |
+| Backend detenido | «No pudimos cargar la tienda»; «Reintentar» se recupera al volver la API |
+| Docker (`:8081` → `:8080`) | La web compilada llama a la API sin errores de CORS |
+
+No se probó la tarjeta de fondos insuficientes (`4000 0000 0000 9995`), que sigue el mismo camino que la
+rechazada. Las reglas agregadas en la auditoría (sección 12.9) se comprobaron con `curl` contra la misma API.
 
 ### Diseño responsivo
 
@@ -636,8 +689,10 @@ Si cambia `style.css` o el marcado, conviene repetir la revisión.
 ## 11. Backend (API REST)
 
 API REST con **Spring Boot 4.1.2**, **Java 21** y **MariaDB** en Docker, para categorías, productos,
-usuarios y boletas. El frontend la usa desde la Evaluación 3 (sección 12.8). Deja CORS habilitado para `http://localhost:5173` (Vite) y `http://localhost:8081` (frontend en Docker).
-La API se documenta con Swagger (sección 11.4). Lo que falta para la Evaluación 3 (los documentos) está en la [sección 12](#12-evaluación-3-pendiente-en-backend-y-base-de-datos).
+usuarios y boletas. El frontend la usa desde la Evaluación 3 (sección 12.8). Con Docker, CORS admite
+`http://localhost:8081` (frontend en Docker) y `http://localhost:5173` (Vite). Con `mvn spring-boot:run`
+admite solo 5173 (`app.cors.origen` en `application.yml`, o la variable `APP_CORS_ORIGEN`).
+La API se documenta con Swagger (sección 11.4). Lo que falta para la Evaluación 3 (los documentos) está en la [sección 12](#12-evaluación-3-estado-y-entregables).
 
 ### 11.1 Requisitos
 
@@ -664,6 +719,9 @@ Los puertos son poco comunes a propósito (la base usa 3307 y no 3306). Para cam
 credencial, se copia el `.env.example` de la carpeta como `.env` (no se versiona). Si se cambia
 `DB_PORT`, `DB_NAME`, `DB_USER` o `DB_PASSWORD`, el mismo valor va en el `.env` de `database/` y en el de
 `backend/`; `CORS_ORIGEN` (en `backend/`) debe incluir la URL del frontend. `SWAGGER_ENABLED=false` apaga la documentación.
+`API_TZ` (por defecto `America/Santiago`) es la zona horaria de la API: fija la fecha y el correlativo de cada
+boleta. Sin ella, el contenedor usaría UTC y una compra hecha después de las 21:00 quedaría con la fecha del
+día siguiente.
 
 Para desarrollar sin contenedor de la API: `docker compose up -d` en `database/` (espera a que quede
 «healthy» con `docker compose ps`), luego `mvn spring-boot:run` y `mvn test` en `backend/` (las
@@ -707,13 +765,13 @@ cliente ──JSON──▶ controller ──▶ service ──▶ repository �
 | | `POST /api/v1/auth/registro` | 201 con el usuario, siempre Cliente (409 si el RUN o el correo existen) | Pública |
 | Categorías | `GET /api/v1/categorias`, `GET /api/v1/categorias/{codigo}` | 200 | Pública |
 | | `POST /api/v1/categorias`, `PUT /api/v1/categorias/{codigo}` | 201 al crear, 200 al editar | Admin |
-| | `DELETE /api/v1/categorias/{codigo}` | 204 (409 si tiene productos) | Admin |
+| | `DELETE /api/v1/categorias/{codigo}` | 204 (409 si tiene productos o es un paso del asistente) | Admin |
 | Productos | `GET /api/v1/productos` (opcional `?categoria=cpu` o `?q=ryzen`), `GET /api/v1/productos/{sku}` | 200 | Pública |
 | | `POST /api/v1/productos`, `PUT /api/v1/productos/{sku}` | 201 al crear, 200 al editar | Admin |
 | | `DELETE /api/v1/productos/{sku}` | 204 (409 si figura en boletas) | Admin |
 | Usuarios | `GET /api/v1/usuarios`, `GET /api/v1/usuarios/{run}` | 200 | Admin |
-| | `POST /api/v1/usuarios`, `PUT /api/v1/usuarios/{run}` | 201 al crear, 200 al editar | Admin |
-| | `DELETE /api/v1/usuarios/{run}` | 204 (409 si tiene boletas) | Admin |
+| | `POST /api/v1/usuarios`, `PUT /api/v1/usuarios/{run}` | 201 al crear, 200 al editar (409 si el correo es de otra cuenta o si se cambia el rol de la propia) | Admin |
+| | `DELETE /api/v1/usuarios/{run}` | 204 (409 si tiene boletas o es la cuenta en sesión) | Admin |
 | | `GET /api/v1/usuarios/me`, `PUT /api/v1/usuarios/me` | 200 con la cuenta del token; el `PUT` edita sus datos y, con `contrasenaActual` y `contrasenaNueva`, la contraseña (400 si la actual no coincide, 409 si el correo es de otra cuenta; nunca cambia el RUN ni el rol) | Cualquier rol con sesión |
 | Boletas | `GET /api/v1/boletas` (opcional `?usuario=123456785`) | 200 | Admin y Logística (todas); Cliente (solo las suyas, ignora `?usuario=`) |
 | | `GET /api/v1/boletas/{numero}` | 200 (404 si no existe o no es del cliente) | Admin y Logística; Cliente solo la suya |
@@ -769,22 +827,32 @@ Los errores tienen el formato `ErrorResponse`:
 | 401 | Falta la sesión, el token es inválido o está vencido, o las credenciales del login son incorrectas |
 | 403 | La sesión es válida pero el rol no tiene permiso para esa ruta |
 | 404 | El registro, la categoría de un producto o la ruta no existen |
-| 409 | Código, SKU, RUN o correo repetido; categoría con productos |
+| 409 | Código, SKU, RUN o correo repetido; categoría con productos o del asistente; producto o usuario con boletas; eliminar la propia cuenta o cambiarle el rol; sin stock; dos escrituras simultáneas que chocan en la base |
 | 500 | Error inesperado (el detalle solo queda en el log) |
 
+Una lectura pública no necesita token. Una escritura sí: primero se inicia sesión con una cuenta de
+administrador y el `accessToken` va en `Authorization` (sin él, el `POST` responde 401):
+
 ```
-curl http://localhost:8080/api/v1/productos?categoria=cpu
+curl "http://localhost:8080/api/v1/productos?categoria=cpu"
+
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login -H "Content-Type: application/json" \
+  -d '{"correo": "admin@duoc.cl", "contrasena": "admin1234"}' | sed -E 's/.*"accessToken":"([^"]+)".*/\1/')
 curl -X POST http://localhost:8080/api/v1/productos -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{ "sku": "CPU-NUEVO-1", "nombre": "Procesador de prueba", "precio": 99990, "stock": 10, "categoria": "cpu" }'
 ```
 
 ### 11.5 Validación y simplificaciones
 
 Las reglas son las del frontend (sección 5): categoría con código de 3–30 (minúsculas, números,
-guiones); producto con SKU ≥ 3, precio ≥ 0, descuento 0–90 y stock ≥ 0; usuario con RUN válido,
-correo de `duoc.cl`, `profesor.duoc.cl` o `gmail.com` y contraseña de 4–10.
+guiones); producto con SKU ≥ 3, precio ≥ 0, descuento 0–90, stock ≥ 0, e imagen y video de hasta 255
+caracteres; usuario con RUN válido, correo de `duoc.cl`, `profesor.duoc.cl` o `gmail.com` y contraseña de 4–10.
+Cada límite coincide con el largo de su columna, así un valor demasiado largo responde 400 y no 500.
 
-- Región y comuna del usuario son texto (`RM`, `RM-02`): no hay tablas de regiones ni comunas.
+- El correo se acepta con mayúsculas (`Camila@Gmail.com`), pero se guarda y se busca en minúsculas: es
+  la misma cuenta al registrarse, al iniciar sesión y al comprobar si está repetido.
+- Región y comuna del usuario son texto (`RM`, `RM-02`, de hasta 10 caracteres): no hay tablas de regiones ni comunas.
 - La contraseña se guarda **cifrada con BCrypt** y nunca aparece en las respuestas.
 - Los tokens no se pueden revocar: un token de renovación robado sirve hasta que vence (7 días).
   Tampoco hay límite de intentos de login ni cierre de sesión en el servidor (el cliente descarta
@@ -794,17 +862,17 @@ correo de `duoc.cl`, `profesor.duoc.cl` o `gmail.com` y contraseña de 4–10.
 - `JWT_SECRET` tiene un valor de desarrollo; en producción debe ser otro, de al menos 32 caracteres.
 - `ddl-auto: update` modifica las tablas solo en desarrollo; no hay migraciones.
 - Faltan la compatibilidad de componentes y los blogs del modelo completo.
-- Las 122 pruebas no usan MariaDB. La mayoría son unitarias (Mockito y MockMvc); las de
+- Las 137 pruebas no usan MariaDB. La mayoría son unitarias (Mockito y MockMvc); las de
   `SeguridadWebTest` levantan el filtro de seguridad real con tokens reales para recorrer las reglas
   de acceso por rol, y `SwaggerTest` arranca la aplicación completa con H2 en memoria (solo en pruebas,
   no entra en la imagen) para revisar la especificación OpenAPI y recorrer login → token → consulta.
 
-## 12. Evaluación 3: pendiente en backend y base de datos
+## 12. Evaluación 3: estado y entregables
 
 Evaluación Parcial N° 3 (DSY1104, 40 % de la nota final): integrar un backend Spring Boot con la base
 de datos, exponer una API REST documentada en Swagger, asegurarla con roles y JWT, y conectarla con el
-frontend. Este apartado detalla lo que falta en `backend/` y `database/`; la sección 11 ya cubre el
-CRUD de categorías, productos y usuarios.
+frontend. Todo el código está hecho (tabla 12.2); solo faltan los documentos de la sección 12.1. Este
+apartado resume cómo se cumple cada indicador; la sección 11 describe la API en detalle.
 
 ### 12.1 Entregables y presentación
 
@@ -869,10 +937,12 @@ erDiagram
   guardan: se calculan al responder.
 - El número sigue el formato `ORD-AAAA-NNNN`, correlativo dentro del año.
 - Integridad: no se elimina un producto con boletas ni un usuario con boletas (409, como la categoría
-  con productos). Esto difiere de la tienda simulada, que conserva el detalle aunque el producto se borre.
+  con productos). Así una boleta nunca pierde su detalle (RF-22).
+- La fecha de la boleta es la del reloj de la API en `America/Santiago` (`API_TZ`, sección 11.2).
 - Las tablas las sigue creando JPA (`ddl-auto: update`) y `CargaInicial` suma 3 boletas de ejemplo.
 - El correlativo se calcula leyendo la última boleta del año: dos compras simultáneas de productos
-  distintos podrían pedir el mismo número y una fallaría con 500. Es una limitación conocida.
+  distintos podrían pedir el mismo número. La base rechaza la segunda, que responde 409 («intenta de
+  nuevo») sin cambiar nada. Es una limitación conocida.
 
 ### 12.4 Endpoints
 
@@ -914,6 +984,8 @@ Implementada con `spring-boot-starter-security` y `jjwt` 0.12.6:
   `ErrorResponse` de la sección 11.4.
 - La identidad de una compra o de una consulta de boletas sale siempre del token, nunca del cuerpo ni
   de la URL, así que un cliente no puede hacerse pasar por otro.
+- Un administrador no puede eliminar su propia cuenta ni cambiarle el rol (409): la cuenta del token se
+  compara con la de la ruta. Así nadie deja el sistema sin administrador por error.
 - CORS permite los orígenes del frontend (`http://localhost:5173` y `http://localhost:8081`) y la cabecera
   `Authorization`.
 
@@ -934,7 +1006,9 @@ especificación OpenAPI 3.1 en `/v3/api-docs`, ambas públicas (`SWAGGER_ENABLED
 
 Mismo estilo de la sección 11 (JUnit 5, Mockito y MockMvc). Hay pruebas de la compra (stock
 insuficiente, precio congelado, descuento de stock, envío), del servicio de tokens (generación,
-vencimiento, firma alterada, renovación), del login y del registro, y de acceso por rol: `SeguridadWebTest`
+vencimiento, firma alterada, renovación), del login y del registro (también con el correo en mayúsculas),
+de las reglas de cada mantenedor (`ProductoServiceTest`, `CategoriaServiceTest`, `UsuarioServiceTest`, con
+la propia cuenta y el paso del asistente), de cada error (`ResponseEntityHandlerTest`) y de acceso por rol: `SeguridadWebTest`
 recorre las rutas con el filtro de seguridad real y comprueba 200, 401 y 403 según el rol; `SwaggerTest`
 arranca la aplicación con H2 y comprueba que toda ruta esté documentada, con resumen, seguridad y errores.
 
@@ -945,7 +1019,8 @@ arranca la aplicación con H2 y comprueba que toda ruta esté documentada, con r
 5. ~~Swagger.~~ Hecho.
 6. ~~Pruebas.~~ Hechas.
 7. ~~Integración del frontend con la API.~~ Hecha (12.8), con `PUT /usuarios/me` para el perfil.
-8. Documentos de la sección 12.1.
+8. ~~Auditoría del código y del README.~~ Hecha (12.9).
+9. Documentos de la sección 12.1.
 
 ### 12.8 Integración del frontend con la API
 
@@ -972,3 +1047,23 @@ arranca la aplicación con H2 y comprueba que toda ruta esté documentada, con r
   Al editar un usuario como administrador hay que escribir una contraseña nueva: la API no entrega la actual.
 - **Datos distintos**: la tienda ya no usa el catálogo de `semillas.js` sino el que carga `CargaInicial` del backend
   (9 productos y 9 categorías).
+
+### 12.9 Auditoría (07-11-2026)
+
+Revisión del backend, del frontend, de los archivos de Docker y de este README después de la integración.
+Se corrigieron estos hallazgos, cada uno con sus pruebas:
+
+| Hallazgo | Prioridad | Corrección |
+|---|---|---|
+| En Docker la API corría en UTC: una compra hecha después de las 21:00 (hora de Chile) quedaba con la fecha del día siguiente, y el 31-12 recibía el correlativo del año siguiente | Media | `TZ` de la JVM en `backend/docker-compose.yml` (`API_TZ`, por defecto `America/Santiago`) |
+| «No eliminar la propia cuenta» y «no eliminar un paso del asistente» solo los aplicaba la interfaz; por la API (Swagger) se podía. Nadie impedía que un administrador se quitara el rol | Media | 409 en `UsuarioService` y `CategoriaService`; select de tipo deshabilitado en la propia cuenta (`FormularioUsuario.jsx`) |
+| La interfaz validaba el correo en minúsculas pero lo enviaba como se escribió: `Camila@GMAIL.com` pasaba el formulario y la API lo rechazaba | Media | `adaptadores.js` envía el correo en minúsculas; la API acepta mayúsculas en el dominio y guarda y busca en minúsculas |
+| `region`, `comuna`, `imagen` y `video` no tenían largo máximo: un valor largo daba 500 en vez de 400 | Baja | `@Size` en `RegistroRequest`, `UsuarioRequest` y `ProductoRequest` |
+| Un choque de integridad en la base (correlativo o correo repetidos por dos peticiones simultáneas) respondía 500 | Baja | `ResponseEntityHandler` responde 409 |
+| Una sesión cuyo token ya no se podía renovar (por ejemplo, de un usuario eliminado) dejaba la tienda en «No pudimos cargar la tienda» | Baja | `services/api.js` cierra la sesión y repite la lectura (solo un `GET`) sin token |
+| `CategoriaService` no tenía pruebas | Baja | `CategoriaServiceTest` (9 pruebas) |
+| Código y comentarios de la tienda simulada: `ordenesDe` solo se usaba en pruebas y `context/datos.js` hablaba de datos simulados | Baja | `ordenesDe` eliminado; comentarios al día |
+
+Siguen como limitaciones conocidas (sección 11.5 y 12.3): tokens no revocables, sin límite de intentos de
+login, cambio de rol efectivo al renovar el token, `ddl-auto: update` sin migraciones y el correlativo
+calculado al leer la última boleta.

@@ -87,6 +87,10 @@ async function interpretar(respuesta) {
  * Llama a la API. Si responde 401 y hay sesion, intenta renovar el token y
  * repite la llamada; si no se puede, termina la sesion. Las rutas de /auth no
  * se renuevan: un 401 del login solo significa credenciales incorrectas.
+ *
+ * Al terminar la sesion, un GET se repite sin token: la API rechaza un token
+ * invalido aun en las rutas publicas, y asi el catalogo carga igual. Un POST
+ * no se repite, para que una compra no pase a ser de invitado sin aviso.
  */
 export async function peticion(metodo, ruta, cuerpo) {
 	const conSesion = Boolean(leerSesion());
@@ -95,7 +99,10 @@ export async function peticion(metodo, ruta, cuerpo) {
 		respuesta = await enviar(metodo, ruta, cuerpo);
 		if (respuesta.status === 401 && conSesion && !ruta.startsWith("/auth/")) {
 			if (await renovar()) respuesta = await enviar(metodo, ruta, cuerpo);
-			if (respuesta.status === 401) terminarSesion();
+			if (respuesta.status === 401) {
+				terminarSesion();
+				if (metodo === "GET") respuesta = await enviar(metodo, ruta, cuerpo);
+			}
 		}
 	} catch {
 		return falla(0, SIN_CONEXION);

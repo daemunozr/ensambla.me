@@ -7,6 +7,8 @@ import { comunas } from "../data/semillas.js";
 
 const numeroONulo = (valor) => (valor === "" || valor === null || valor === undefined ? null : Number(valor));
 const textoONulo = (valor) => (valor === "" || valor === undefined ? null : valor);
+// La API guarda los correos en minusculas; se envian igual a como se validaron (utils/validaciones.js).
+export const correoParaApi = (correo) => String(correo ?? "").trim().toLowerCase();
 
 /* ================================================================== Productos */
 export function productoDeApi(p) {
@@ -50,7 +52,7 @@ export const usuarioParaApi = (u) => ({
 	run: u.run,
 	nombre: u.nombre,
 	apellidos: u.apellidos,
-	correo: u.correo,
+	correo: correoParaApi(u.correo),
 	contrasena: u.contrasena,
 	fechaNacimiento: textoONulo(u.fechaNacimiento),
 	region: u.region || regionDe(u.comuna),
@@ -67,7 +69,7 @@ export const registroParaApi = (u) => {
 export const perfilParaApi = (u) => ({
 	nombre: u.nombre,
 	apellidos: u.apellidos,
-	correo: u.correo,
+	correo: correoParaApi(u.correo),
 	fechaNacimiento: textoONulo(u.fechaNacimiento),
 	region: u.region || regionDe(u.comuna),
 	comuna: u.comuna,
@@ -107,7 +109,7 @@ export function boletaParaApi({ comprador, entrega, medioPago, lineas }) {
 	lineas.forEach(({ producto, cantidad }) => porSku.set(producto, (porSku.get(producto) ?? 0) + Number(cantidad)));
 	return {
 		nombre: comprador.nombre,
-		correo: comprador.correo,
+		correo: correoParaApi(comprador.correo),
 		direccion: comprador.direccion,
 		comuna: comprador.comuna,
 		entrega,

@@ -1,6 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import { Route, Routes } from "react-router";
-import { ordenesDe, totalOrden, usuario, usuarios } from "../../data/datos.js";
+import { ordenes, totalOrden, usuario, usuarios } from "../../data/datos.js";
 import { precio } from "../../utils/formato.js";
 import { limpiarAlmacenamiento, renderConProviders, sesionDe } from "../../testUtils.jsx";
 import UsuarioFicha from "./Usuario.jsx";
@@ -39,7 +39,9 @@ describe("admin / Usuario (ficha)", () => {
 
 	it("resume el historial de compras y enlaza a cada boleta (RF-11 CA5)", () => {
 		montar("123456785");
-		const gasto = ordenesDe("123456785").reduce((suma, o) => suma + totalOrden(o.numero), 0);
+		const gasto = ordenes()
+			.filter((o) => o.cliente === "123456785")
+			.reduce((suma, o) => suma + totalOrden(o.numero), 0);
 
 		expect(screen.getByText(`2 compras por un total de ${precio(gasto)}.`)).toBeInTheDocument();
 		const tabla = screen.getByRole("table");

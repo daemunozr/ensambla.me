@@ -5,6 +5,8 @@ import * as datos from "./datos.js";
 const entrar = (sesion) => window.sessionStorage.setItem("sesion", JSON.stringify(sesion));
 const rutas = () => llamadas.map((l) => `${l.metodo} ${l.ruta}`);
 const CAMILA = sesionDe({ run: "123456785", nombre: "Camila", apellidos: "Soto Vera", correo: "camila@gmail.com", tipoUsuario: "CLIENTE" });
+// Administrador que si existe entre los usuarios de la API falsa, para las reglas sobre la propia cuenta.
+const DANIEL = sesionDe({ run: "190110222", nombre: "Daniel", apellidos: "Munoz Rojas", correo: "daniel@duoc.cl", tipoUsuario: "ADMIN" });
 
 const COMPRADOR = { nombre: "Pedro Rojas", correo: "pedro@gmail.com", direccion: "Calle 1", comuna: "RM-01" };
 const UNA_LINEA = [{ linea: 1, producto: "PER-MOUSE-RGB", cantidad: 1, armado: null }];
@@ -142,6 +144,33 @@ describe("datos: escrituras", () => {
 
 		expect(resultado).toEqual({ ok: false, mensaje: "No puedes eliminar tu propia cuenta mientras tienes la sesion iniciada." });
 		expect(llamadas).toEqual([]);
+	});
+
+	it("el correo viaja a la API en minusculas y sin espacios, como se valido", async () => {
+		await datos.crearUsuario({
+			run: "111111111", nombre: "Ana", apellidos: "Pinto", correo: " Ana@GMAIL.com ", contrasena: "ana1234",
+			fechaNacimiento: "", comuna: "RM-01", direccion: "Calle 1", tipoUsuario: "CLIENTE",
+		});
+
+		expect(llamadas[0].cuerpo.correo).toBe("ana@gmail.com");
+	});
+
+	it("nadie cambia el rol de su propia cuenta: lo rechaza el servidor", async () => {
+		entrar(DANIEL);
+		const propia = datos.usuario(DANIEL.run);
+
+		const resultado = await datos.actualizarUsuario(propia.run, { ...propia, contrasena: "nueva123", tipoUsuario: "CLIENTE" });
+
+		expect(resultado).toEqual({ ok: false, mensaje: "No puedes cambiar el rol de tu propia cuenta." });
+		expect(datos.usuario(propia.run).tipoUsuario).toBe("ADMIN");
+	});
+
+	it("la API tambien rechaza borrar la propia cuenta o un paso del asistente, aunque se la llame directo", async () => {
+		const { quitarCategoria, quitarUsuario } = await import("../services/recursos.js");
+		entrar(DANIEL);
+
+		expect(await quitarUsuario(DANIEL.run)).toMatchObject({ ok: false, estado: 409 });
+		expect(await quitarCategoria("cpu")).toMatchObject({ ok: false, estado: 409, mensaje: expect.stringMatching(/paso 1 del asistente/) });
 	});
 
 	it("un usuario con boletas no se elimina: lo rechaza el servidor", async () => {

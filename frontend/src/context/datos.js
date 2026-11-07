@@ -1,6 +1,7 @@
 /*
- * Contexto de datos: conecta la fuente de datos simulada (data/datos.js) con
- * los componentes. El proveedor esta en context/DatosProvider.jsx.
+ * Contexto de datos: conecta la copia en memoria de lo que entrega la API
+ * (data/datos.js) con los componentes. El proveedor esta en
+ * context/DatosProvider.jsx.
  */
 import { createContext, useContext } from "react";
 

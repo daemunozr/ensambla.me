@@ -26,6 +26,7 @@ public record PerfilRequest(
         @NotBlank(message = "El correo es obligatorio.")
         @Size(max = 100, message = "El correo admite hasta 100 caracteres.")
         @Pattern(regexp = "[^@\\s]+@(duoc\\.cl|profesor\\.duoc\\.cl|gmail\\.com)",
+                flags = Pattern.Flag.CASE_INSENSITIVE,
                 message = "Solo se aceptan los dominios duoc.cl, profesor.duoc.cl y gmail.com.")
         @Schema(description = "Correo (dominios duoc.cl, profesor.duoc.cl o gmail.com)", example = "camila@gmail.com")
         String correo,
