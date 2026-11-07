@@ -21,6 +21,13 @@ spring:
 server:
   port: 8080
 
+# Tokens JWT. El secreto firma los tokens: debe medir al menos 32 caracteres. El de aqui es de
+# desarrollo y NO sirve para produccion; se cambia con la variable de entorno JWT_SECRET.
+jwt:
+  secreto: ${JWT_SECRET:clave-de-desarrollo-ensamblame-cambiar-en-produccion-0123456789}
+  acceso-minutos: 15
+  renovacion-dias: 7
+
 app:
   cors:
     # Origen del frontend (Vite) autorizado para llamar a la API.

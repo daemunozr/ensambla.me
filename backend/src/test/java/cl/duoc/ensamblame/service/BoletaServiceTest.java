@@ -63,9 +63,11 @@ class BoletaServiceTest {
         return producto;
     }
 
-    private BoletaRequest request(String usuario, TipoEntrega entrega, LineaBoletaRequest... lineas) {
-        return new BoletaRequest(usuario, "Camila Soto Vera", "Camila@Gmail.com", "Irarrazaval 2550, Nunoa",
+    // Registra una compra de la cuenta "usuario" (el RUN que vendria en el token; null = invitado).
+    private BoletaResponse crear(String usuario, TipoEntrega entrega, LineaBoletaRequest... lineas) {
+        BoletaRequest request = new BoletaRequest("Camila Soto Vera", "Camila@Gmail.com", "Irarrazaval 2550, Nunoa",
                 "RM-04", entrega, "Tarjeta terminada en 4242", List.of(lineas));
+        return servicio.crear(request, usuario);
     }
 
     private LineaBoletaRequest linea(String sku, int cantidad) {
@@ -84,7 +86,7 @@ class BoletaServiceTest {
         // 249.990 con 15 % de descuento = 212.491,5, que se redondea a 212.492.
         prepararCompra(producto("CPU-R5-7600", "AMD Ryzen 5 7600", "249990", 15, 18));
 
-        BoletaResponse respuesta = servicio.crear(request(null, TipoEntrega.RETIRO, linea("CPU-R5-7600", 1)));
+        BoletaResponse respuesta = crear(null, TipoEntrega.RETIRO, linea("CPU-R5-7600", 1));
 
         assertEquals(new BigDecimal("212492.00"), respuesta.detalles().get(0).precioUnitario());
         assertEquals(new BigDecimal("212492.00"), respuesta.total());
@@ -94,7 +96,7 @@ class BoletaServiceTest {
     void crearSinOfertaCobraElPrecioDeLista() {
         prepararCompra(producto("PER-KB-MECH", "Teclado mecanico", "34990", null, 25));
 
-        BoletaResponse respuesta = servicio.crear(request(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 2)));
+        BoletaResponse respuesta = crear(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 2));
 
         assertEquals(new BigDecimal("34990.00"), respuesta.detalles().get(0).precioUnitario());
         assertEquals(new BigDecimal("69980.00"), respuesta.subtotal());
@@ -104,7 +106,7 @@ class BoletaServiceTest {
     void elDespachoABajoDe200000CobraElEnvio() {
         prepararCompra(producto("PER-KB-MECH", "Teclado mecanico", "34990", null, 25));
 
-        BoletaResponse respuesta = servicio.crear(request(null, TipoEntrega.DOMICILIO, linea("PER-KB-MECH", 1)));
+        BoletaResponse respuesta = crear(null, TipoEntrega.DOMICILIO, linea("PER-KB-MECH", 1));
 
         assertEquals(new BigDecimal("4990.00"), respuesta.costoEnvio());
         assertEquals(new BigDecimal("39980.00"), respuesta.total());
@@ -114,7 +116,7 @@ class BoletaServiceTest {
     void elDespachoDesde200000EsGratis() {
         prepararCompra(producto("CPU-R5-7600", "AMD Ryzen 5 7600", "249990", null, 18));
 
-        BoletaResponse respuesta = servicio.crear(request(null, TipoEntrega.DOMICILIO, linea("CPU-R5-7600", 1)));
+        BoletaResponse respuesta = crear(null, TipoEntrega.DOMICILIO, linea("CPU-R5-7600", 1));
 
         assertEquals(new BigDecimal("0.00"), respuesta.costoEnvio());
     }
@@ -123,7 +125,7 @@ class BoletaServiceTest {
     void elRetiroEnTiendaNoCobraEnvio() {
         prepararCompra(producto("PER-KB-MECH", "Teclado mecanico", "34990", null, 25));
 
-        BoletaResponse respuesta = servicio.crear(request(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 1)));
+        BoletaResponse respuesta = crear(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 1));
 
         assertEquals(new BigDecimal("0.00"), respuesta.costoEnvio());
     }
@@ -132,7 +134,7 @@ class BoletaServiceTest {
     void elNetoMasElIvaSumanElTotal() {
         prepararCompra(producto("PER-KB-MECH", "Teclado mecanico", "34990", null, 25));
 
-        BoletaResponse respuesta = servicio.crear(request(null, TipoEntrega.DOMICILIO, linea("PER-KB-MECH", 1)));
+        BoletaResponse respuesta = crear(null, TipoEntrega.DOMICILIO, linea("PER-KB-MECH", 1));
 
         // 39.980 / 1,19 = 33.596,6..., que se redondea a 33.597.
         assertEquals(new BigDecimal("33597.00"), respuesta.neto());
@@ -145,7 +147,7 @@ class BoletaServiceTest {
         Producto teclado = producto("PER-KB-MECH", "Teclado mecanico", "34990", null, 25);
         prepararCompra(teclado);
 
-        servicio.crear(request(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 3)));
+        crear(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 3));
 
         assertEquals(22, teclado.getStock());
     }
@@ -155,8 +157,8 @@ class BoletaServiceTest {
         Producto teclado = producto("PER-KB-MECH", "Teclado mecanico", "34990", null, 25);
         prepararCompra(teclado);
 
-        BoletaResponse respuesta = servicio.crear(
-                request(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 1), linea("PER-KB-MECH", 2)));
+        BoletaResponse respuesta = crear(null, TipoEntrega.RETIRO,
+                linea("PER-KB-MECH", 1), linea("PER-KB-MECH", 2));
 
         assertEquals(1, respuesta.detalles().size());
         assertEquals(3, respuesta.detalles().get(0).cantidad());
@@ -169,8 +171,8 @@ class BoletaServiceTest {
         Producto escaso = producto("PER-KB-MECH", "Teclado mecanico", "34990", null, 2);
         when(productoRepository.bloquearPorSku(any())).thenReturn(List.of(agotado, escaso));
 
-        ReglaNegocioException error = assertThrows(ReglaNegocioException.class, () -> servicio.crear(
-                request(null, TipoEntrega.RETIRO, linea("GPU-RTX4060", 1), linea("PER-KB-MECH", 5))));
+        ReglaNegocioException error = assertThrows(ReglaNegocioException.class,
+                () -> crear(null, TipoEntrega.RETIRO, linea("GPU-RTX4060", 1), linea("PER-KB-MECH", 5)));
 
         assertTrue(error.getMessage().contains("RTX 4060 (sin stock)"));
         assertTrue(error.getMessage().contains("Teclado mecanico (quedan 2)"));
@@ -183,7 +185,7 @@ class BoletaServiceTest {
         when(productoRepository.bloquearPorSku(any())).thenReturn(List.of());
 
         assertThrows(RecursoNoEncontradoException.class,
-                () -> servicio.crear(request(null, TipoEntrega.RETIRO, linea("NO-EXISTE", 1))));
+                () -> crear(null, TipoEntrega.RETIRO, linea("NO-EXISTE", 1)));
 
         verify(boletaRepository, never()).save(any());
     }
@@ -193,7 +195,7 @@ class BoletaServiceTest {
         when(usuarioRepository.findById("123456785")).thenReturn(Optional.empty());
 
         assertThrows(RecursoNoEncontradoException.class,
-                () -> servicio.crear(request("123456785", TipoEntrega.RETIRO, linea("PER-KB-MECH", 1))));
+                () -> crear("123456785", TipoEntrega.RETIRO, linea("PER-KB-MECH", 1)));
 
         verify(boletaRepository, never()).save(any());
     }
@@ -205,8 +207,8 @@ class BoletaServiceTest {
         when(usuarioRepository.findById("123456785")).thenReturn(Optional.of(camila));
         prepararCompra(producto("PER-KB-MECH", "Teclado mecanico", "34990", null, 25));
 
-        BoletaResponse conCuenta = servicio.crear(request("123456785", TipoEntrega.RETIRO, linea("PER-KB-MECH", 1)));
-        BoletaResponse invitado = servicio.crear(request(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 1)));
+        BoletaResponse conCuenta = crear("123456785", TipoEntrega.RETIRO, linea("PER-KB-MECH", 1));
+        BoletaResponse invitado = crear(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 1));
 
         assertEquals("123456785", conCuenta.usuario());
         assertNull(invitado.usuario());
@@ -216,7 +218,7 @@ class BoletaServiceTest {
     void elCorreoSeGuardaEnMinusculas() {
         prepararCompra(producto("PER-KB-MECH", "Teclado mecanico", "34990", null, 25));
 
-        servicio.crear(request(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 1)));
+        crear(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 1));
 
         ArgumentCaptor<Boleta> guardada = ArgumentCaptor.forClass(Boleta.class);
         verify(boletaRepository).save(guardada.capture());
@@ -227,7 +229,7 @@ class BoletaServiceTest {
     void laPrimeraBoletaDelAnoEsLaNumeroUno() {
         prepararCompra(producto("PER-KB-MECH", "Teclado mecanico", "34990", null, 25));
 
-        BoletaResponse respuesta = servicio.crear(request(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 1)));
+        BoletaResponse respuesta = crear(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 1));
 
         assertEquals("ORD-" + ano + "-0001", respuesta.numero());
     }
@@ -242,7 +244,7 @@ class BoletaServiceTest {
                 .thenReturn(Optional.of(ultima));
         when(boletaRepository.save(any(Boleta.class))).thenAnswer(llamada -> llamada.getArgument(0));
 
-        BoletaResponse respuesta = servicio.crear(request(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 1)));
+        BoletaResponse respuesta = crear(null, TipoEntrega.RETIRO, linea("PER-KB-MECH", 1));
 
         assertEquals("ORD-" + ano + "-0008", respuesta.numero());
     }
@@ -251,7 +253,43 @@ class BoletaServiceTest {
     void obtenerUnaBoletaInexistenteLanzaNoEncontrado() {
         when(boletaRepository.findById("ORD-2026-9999")).thenReturn(Optional.empty());
 
-        assertThrows(RecursoNoEncontradoException.class, () -> servicio.obtener("ORD-2026-9999"));
+        assertThrows(RecursoNoEncontradoException.class, () -> servicio.obtener("ORD-2026-9999", null));
+    }
+
+    private Boleta boletaDe(String run) {
+        Boleta boleta = new Boleta();
+        boleta.setNumero("ORD-2026-0001");
+        boleta.setFecha(LocalDate.of(2026, 10, 5));
+        boleta.setCostoEnvio(BigDecimal.ZERO);
+        if (run != null) {
+            Usuario usuario = new Usuario();
+            usuario.setRun(run);
+            boleta.setUsuario(usuario);
+        }
+        return boleta;
+    }
+
+    @Test
+    void unClienteVeSuPropiaBoleta() {
+        when(boletaRepository.findById("ORD-2026-0001")).thenReturn(Optional.of(boletaDe("123456785")));
+
+        assertEquals("ORD-2026-0001", servicio.obtener("ORD-2026-0001", "123456785").numero());
+    }
+
+    @Test
+    void unClienteNoVeLaBoletaDeOtraCuentaNiLaDeUnInvitado() {
+        when(boletaRepository.findById("ORD-2026-0001"))
+                .thenReturn(Optional.of(boletaDe("152345674")), Optional.of(boletaDe(null)));
+
+        assertThrows(RecursoNoEncontradoException.class, () -> servicio.obtener("ORD-2026-0001", "123456785"));
+        assertThrows(RecursoNoEncontradoException.class, () -> servicio.obtener("ORD-2026-0001", "123456785"));
+    }
+
+    @Test
+    void elPersonalVeCualquierBoleta() {
+        when(boletaRepository.findById("ORD-2026-0001")).thenReturn(Optional.of(boletaDe(null)));
+
+        assertEquals("ORD-2026-0001", servicio.obtener("ORD-2026-0001", null).numero());
     }
 
     @Test

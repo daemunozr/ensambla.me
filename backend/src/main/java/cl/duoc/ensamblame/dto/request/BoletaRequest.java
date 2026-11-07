@@ -10,12 +10,10 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 /**
- * Datos de una compra. "usuario" es el RUN de la cuenta y es opcional: sin el, la compra es de
- * invitado. Los precios y el costo de envio los calcula el servidor, nunca vienen del cliente.
+ * Datos de una compra. La cuenta compradora no viene en el cuerpo sino en el token (sin token, la
+ * compra es de invitado). Los precios y el costo de envio los calcula el servidor.
  */
 public record BoletaRequest(
-
-        String usuario,
 
         @NotBlank(message = "El nombre del comprador es obligatorio.")
         @Size(max = 150, message = "El nombre admite hasta 150 caracteres.")

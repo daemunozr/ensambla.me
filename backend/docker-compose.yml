@@ -17,6 +17,9 @@ services:
       DB_NAME: ${DB_NAME:-ensamblame}
       DB_USER: ${DB_USER:-ensamblame}
       DB_PASSWORD: ${DB_PASSWORD:-ensamblame_dev}
+      # Clave con la que se firman los tokens JWT (minimo 32 caracteres). Este valor es de
+      # desarrollo y NO sirve para produccion: se cambia en el .env.
+      JWT_SECRET: ${JWT_SECRET:-clave-de-desarrollo-ensamblame-cambiar-en-produccion-0123456789}
       # Origenes del frontend autorizados por CORS: el de Docker (8081) y el de Vite (5173).
       APP_CORS_ORIGEN: ${CORS_ORIGEN:-http://localhost:8081,http://localhost:5173}
     extra_hosts:

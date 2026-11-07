@@ -4,16 +4,22 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import cl.duoc.ensamblame.exception.ResponseEntityHandler;
+import cl.duoc.ensamblame.model.TipoUsuario;
+import cl.duoc.ensamblame.security.UsuarioAutenticado;
 import cl.duoc.ensamblame.service.BoletaService;
 import cl.duoc.ensamblame.service.CategoriaService;
 import cl.duoc.ensamblame.service.ProductoService;
 import cl.duoc.ensamblame.service.UsuarioService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -41,7 +47,16 @@ class RutasVersionadasTest {
                 new ProductoController(productoService), new UsuarioController(usuarioService),
                 new BoletaController(boletaService))
                 .setControllerAdvice(new ResponseEntityHandler())
+                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();
+        // Las boletas se consultan con sesion; las reglas de acceso estan en SeguridadWebTest.
+        UsuarioAutenticado admin = new UsuarioAutenticado("190110222", "admin@duoc.cl", TipoUsuario.ADMIN);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(admin, null));
+    }
+
+    @AfterEach
+    void limpiarSesion() {
+        SecurityContextHolder.clearContext();
     }
 
     @ParameterizedTest

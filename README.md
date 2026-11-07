@@ -627,7 +627,7 @@ Si cambia `style.css` o el marcado, conviene repetir la revisión.
 
 API REST con **Spring Boot 4.1.2**, **Java 21** y **MariaDB** en Docker, para categorías, productos,
 usuarios y boletas. El frontend **todavía no la usa**. Deja CORS habilitado para `http://localhost:5173` (Vite) y `http://localhost:8081` (frontend en Docker).
-Lo que falta para la Evaluación 3 (versionado, Swagger, JWT y roles) está en la [sección 12](#12-evaluación-3-pendiente-en-backend-y-base-de-datos).
+Lo que falta para la Evaluación 3 (Swagger y la integración con el frontend) está en la [sección 12](#12-evaluación-3-pendiente-en-backend-y-base-de-datos).
 
 ### 11.1 Requisitos
 
@@ -685,36 +685,58 @@ cliente ──JSON──▶ controller ──▶ service ──▶ repository �
 | `dto.request` / `dto.response` | JSON de entrada y salida; las entidades nunca se exponen |
 | `service` | Reglas de negocio (duplicados, categoría con productos…) y paso de entidad a DTO |
 | `exception` | `ResponseEntityHandler` convierte cada excepción en una respuesta de error |
-| `config` | `CorsConfig`, `SeguridadConfig` (BCrypt) y `CargaInicial` |
+| `config` | `CorsConfig`, `SeguridadConfig` (reglas de acceso, BCrypt y autenticación) y `CargaInicial` |
+| `security` | `JwtService` (genera y verifica los tokens), `JwtAuthFilter` (lee el token de cada petición), `UsuarioDetailsService` y los manejadores de 401 y 403 |
 | `util` | `ValidadorRun`: dígito verificador del RUN (módulo 11) |
 
 ### 11.4 Endpoints
 
-| Recurso | Método y ruta | Respuesta |
-|---|---|---|
-| Categorías | `GET /api/v1/categorias`, `GET /api/v1/categorias/{codigo}` | 200 |
-| | `POST /api/v1/categorias`, `PUT /api/v1/categorias/{codigo}` | 201 al crear, 200 al editar |
-| | `DELETE /api/v1/categorias/{codigo}` | 204 (409 si tiene productos) |
-| Productos | `GET /api/v1/productos` (opcional `?categoria=cpu` o `?q=ryzen`), `GET /api/v1/productos/{sku}` | 200 |
-| | `POST /api/v1/productos`, `PUT /api/v1/productos/{sku}` | 201 al crear, 200 al editar |
-| | `DELETE /api/v1/productos/{sku}` | 204 (409 si figura en boletas) |
-| Usuarios | `GET /api/v1/usuarios`, `GET /api/v1/usuarios/{run}` | 200 |
-| | `POST /api/v1/usuarios`, `PUT /api/v1/usuarios/{run}` | 201 al crear, 200 al editar |
-| | `DELETE /api/v1/usuarios/{run}` | 204 (409 si tiene boletas) |
-| Boletas | `GET /api/v1/boletas` (opcional `?usuario=123456785`), `GET /api/v1/boletas/{numero}` | 200 (404 si no existe) |
-| | `POST /api/v1/boletas` | 201 (404 si falta un producto o el usuario, 409 sin stock) |
+| Recurso | Método y ruta | Respuesta | Quién |
+|---|---|---|---|
+| Auth | `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh` | 200 con los tokens (401 si no sirven) | Pública |
+| | `POST /api/v1/auth/registro` | 201 con el usuario, siempre Cliente (409 si el RUN o el correo existen) | Pública |
+| Categorías | `GET /api/v1/categorias`, `GET /api/v1/categorias/{codigo}` | 200 | Pública |
+| | `POST /api/v1/categorias`, `PUT /api/v1/categorias/{codigo}` | 201 al crear, 200 al editar | Admin |
+| | `DELETE /api/v1/categorias/{codigo}` | 204 (409 si tiene productos) | Admin |
+| Productos | `GET /api/v1/productos` (opcional `?categoria=cpu` o `?q=ryzen`), `GET /api/v1/productos/{sku}` | 200 | Pública |
+| | `POST /api/v1/productos`, `PUT /api/v1/productos/{sku}` | 201 al crear, 200 al editar | Admin |
+| | `DELETE /api/v1/productos/{sku}` | 204 (409 si figura en boletas) | Admin |
+| Usuarios | `GET /api/v1/usuarios`, `GET /api/v1/usuarios/{run}` | 200 | Admin |
+| | `POST /api/v1/usuarios`, `PUT /api/v1/usuarios/{run}` | 201 al crear, 200 al editar | Admin |
+| | `DELETE /api/v1/usuarios/{run}` | 204 (409 si tiene boletas) | Admin |
+| | `GET /api/v1/usuarios/me` | 200 con la cuenta del token | Cualquier rol con sesión |
+| Boletas | `GET /api/v1/boletas` (opcional `?usuario=123456785`) | 200 | Admin y Logística (todas); Cliente (solo las suyas, ignora `?usuario=`) |
+| | `GET /api/v1/boletas/{numero}` | 200 (404 si no existe o no es del cliente) | Admin y Logística; Cliente solo la suya |
+| | `POST /api/v1/boletas` | 201 (404 si falta un producto, 409 sin stock) | Pública; con token, a nombre de la cuenta |
 
 Todas las rutas cuelgan de `/api/v1/`; las rutas sin versión (`/api/productos`) ya no existen y
 responden 404. El identificador (código, SKU o RUN) no cambia al editar: en `PUT` manda el de la ruta.
 Las boletas solo se registran y se consultan: no hay `PUT` ni `DELETE`.
 
 `POST /api/v1/boletas` recibe el comprador (`nombre`, `correo`, `direccion`, `comuna`), `entrega`
-(`DOMICILIO` o `RETIRO`), `medioPago`, `lineas` (`sku` y `cantidad`) y, opcional, el `usuario` (RUN);
-sin él la compra es de invitado. Los precios y el envío nunca vienen del cliente. En una sola
+(`DOMICILIO` o `RETIRO`), `medioPago` y `lineas` (`sku` y `cantidad`). La cuenta compradora sale del
+token; sin token la compra es de invitado. Los precios y el envío nunca vienen del cliente. En una sola
 transacción el servidor valida el stock de todas las líneas, congela el precio vigente (con el
 descuento), calcula el envío (domicilio $4.990, gratis desde $200.000; retiro gratis), descuenta el
 stock y numera la boleta `ORD-AAAA-NNNN`. La respuesta trae el detalle, el subtotal, el envío, el
 total y el desglose de IVA (neto + IVA = total). Las líneas con el mismo SKU se suman.
+
+#### Autenticación
+
+`POST /api/v1/auth/login` con `{"correo": "...", "contrasena": "..."}` responde:
+
+```json
+{ "accessToken": "eyJ...", "refreshToken": "eyJ...", "tipo": "Bearer", "expiraEn": 900,
+  "run": "123456785", "nombre": "Camila", "rol": "CLIENTE" }
+```
+
+Las rutas privadas piden `Authorization: Bearer <accessToken>`. El token de acceso dura 15 minutos y
+el de renovación 7 días; con `POST /api/v1/auth/refresh` y `{"refreshToken": "..."}` se obtienen
+tokens nuevos (el rol se lee de nuevo de la base). Son JWT firmados con HS256 que llevan el correo
+(`sub`), el RUN, el rol, el tipo (`acceso` o `renovacion`, para que uno no sirva como el otro) y la
+expiración. Un token alterado, vencido o del tipo equivocado responde 401, también en las rutas
+públicas. Con un rol sin permiso responde 403. Un error de login no distingue entre correo
+inexistente y contraseña incorrecta.
 
 Los errores tienen el formato `ErrorResponse`:
 
@@ -727,6 +749,8 @@ Los errores tienen el formato `ErrorResponse`:
 | Código | Cuándo |
 |---|---|
 | 400 | Falla una validación, el JSON está mal formado o el DV del RUN no coincide |
+| 401 | Falta la sesión, el token es inválido o está vencido, o las credenciales del login son incorrectas |
+| 403 | La sesión es válida pero el rol no tiene permiso para esa ruta |
 | 404 | El registro, la categoría de un producto o la ruta no existen |
 | 409 | Código, SKU, RUN o correo repetido; categoría con productos |
 | 500 | Error inesperado (el detalle solo queda en el log) |
@@ -744,14 +768,18 @@ guiones); producto con SKU ≥ 3, precio ≥ 0, descuento 0–90 y stock ≥ 0; 
 correo de `duoc.cl`, `profesor.duoc.cl` o `gmail.com` y contraseña de 4–10.
 
 - Región y comuna del usuario son texto (`RM`, `RM-02`): no hay tablas de regiones ni comunas.
-- La contraseña se guarda **cifrada con BCrypt** y nunca aparece en las respuestas. Hoy no hay inicio de
-  sesión, tokens ni control de acceso por rol (cualquiera que llegue a la API usa todos los
-  endpoints); se agregan en la sección 12.
+- La contraseña se guarda **cifrada con BCrypt** y nunca aparece en las respuestas.
+- Los tokens no se pueden revocar: un token de renovación robado sirve hasta que vence (7 días).
+  Tampoco hay límite de intentos de login ni cierre de sesión en el servidor (el cliente descarta
+  sus tokens).
+- El rol viaja en el token: si un administrador cambia el rol de alguien, el cambio rige al renovar
+  el token de acceso (hasta 15 minutos).
+- `JWT_SECRET` tiene un valor de desarrollo; en producción debe ser otro, de al menos 32 caracteres.
 - `ddl-auto: update` modifica las tablas solo en desarrollo; no hay migraciones.
 - Faltan la compatibilidad de componentes y los blogs del modelo completo.
-- Una compra de invitado y el filtro `?usuario=` se apoyan en datos del cuerpo y de la URL: no hay
-  autenticación que los respalde (se resuelve en la sección 12).
-- Las 57 pruebas son unitarias (Mockito y MockMvc); ninguna levanta la base de datos.
+- Las 108 pruebas no usan la base de datos. La mayoría son unitarias (Mockito y MockMvc); las de
+  `SeguridadWebTest` levantan el filtro de seguridad real con tokens reales para recorrer las reglas
+  de acceso por rol.
 
 ## 12. Evaluación 3: pendiente en backend y base de datos
 
@@ -772,9 +800,9 @@ CRUD de categorías, productos y usuarios.
 
 | Indicador | Peso | Hoy | Falta |
 |---|---:|---|---|
-| IE3.1.1 Backend y base de datos | 8 % | CRUD de categorías, productos y usuarios, y boletas con detalle y compra transaccional (sección 12.3), sobre MariaDB | Nada pendiente en el modelo; depende de la autenticación para asociar la boleta a la cuenta en sesión |
-| IE3.2.1 API REST y Swagger | 8 % | Endpoints CRUD y de boletas versionados en `/api/v1/...` | Endpoints de auth, Swagger UI (12.4, 12.6) |
-| IE3.3.1 Autenticación JWT y roles | 6 % | Contraseña con BCrypt y enum `TipoUsuario` | Login, JWT con renovación, filtro de seguridad y permisos por rol (12.5) |
+| IE3.1.1 Backend y base de datos | 8 % | CRUD de categorías, productos y usuarios, y boletas con detalle y compra transaccional (sección 12.3), sobre MariaDB | Nada pendiente |
+| IE3.2.1 API REST y Swagger | 8 % | Endpoints CRUD, de boletas y de auth versionados en `/api/v1/...` | Swagger UI (12.6) |
+| IE3.3.1 Autenticación JWT y roles | 6 % | Login, registro, JWT de acceso y renovación, filtro de seguridad y permisos por rol (12.5) | Nada pendiente en el backend |
 | IE3.2.2 Integración backend-frontend | 6 % | CORS hacia `http://localhost:5173` y `:8081` | Llamadas `fetch`/`axios` desde React. **Frontend**, fuera de este apartado |
 | IE3.3.2 Sesión en el frontend | 6 % | Sesión simulada en `sessionStorage` | Guardar el token y mantenerlo al recargar. **Frontend** |
 | IE3.3.3 Restricciones en el frontend | 6 % | `RutaProtegida` por rol simulado | Basarlo en el rol del token. **Frontend** |
@@ -828,15 +856,15 @@ erDiagram
 - El correlativo se calcula leyendo la última boleta del año: dos compras simultáneas de productos
   distintos podrían pedir el mismo número y una fallaría con 500. Es una limitación conocida.
 
-### 12.4 Endpoints a implementar
+### 12.4 Endpoints
 
-Todas las rutas cuelgan de `/api/v1/` (las de la sección 11.4 ya están versionadas); las de `auth` se
-agregan con el mismo prefijo. Formato del Anexo 3.
+Todas las rutas cuelgan de `/api/v1/` y ya están implementadas (sección 11.4); solo falta documentarlas en Swagger.
+Formato del Anexo 3.
 Roles: Admin (`ADMIN`), Logística (`LOGISTICA`, el «Vendedor» del enunciado) y Cliente (`CLIENTE`).
 
 | Método y ruta | Descripción | Entrada | Respuestas | Tipo | Roles |
 |---|---|---|---|---|---|
-| `POST /auth/login` | Inicia sesión y entrega los tokens | `{correo, contrasena}` | 200 `{accessToken, refreshToken, rol}`, 400, 401 | Pública | — |
+| `POST /auth/login` | Inicia sesión y entrega los tokens | `{correo, contrasena}` | 200 `{accessToken, refreshToken, tipo, expiraEn, run, nombre, rol}`, 400, 401 | Pública | — |
 | `POST /auth/registro` | Registra un Cliente | Datos de RF-01 | 201, 400, 409 | Pública | — |
 | `POST /auth/refresh` | Renueva el token de acceso | `{refreshToken}` | 200, 401 | Pública | — |
 | `GET /categorias`, `/categorias/{codigo}` | Lista o detalla categorías | — | 200, 404 | Pública | — |
@@ -848,22 +876,27 @@ Roles: Admin (`ADMIN`), Logística (`LOGISTICA`, el «Vendedor» del enunciado) 
 | `GET /usuarios/me` | Perfil de la cuenta en sesión | — | 200, 401 | Privada | Todos |
 | `GET /boletas` | Lista las boletas | — | 200, 401, 403 | Privada | Admin y Logística (todas), Cliente (las suyas) |
 | `GET /boletas/{numero}` | Detalle con neto, IVA y total | — | 200, 401, 404 | Privada | Admin y Logística; Cliente solo la suya |
-| `POST /boletas` | Registra la compra (12.3) | Comprador, entrega, medio de pago y líneas `{sku, cantidad}` | 201, 400, 409 (sin stock) | Pública, con token opcional (con él, queda a nombre de la cuenta) | — |
+| `POST /boletas` | Registra la compra (12.3) | Comprador, entrega, medio de pago y líneas `{sku, cantidad}` (sin RUN: sale del token) | 201, 400, 409 (sin stock) | Pública, con token opcional (con él, queda a nombre de la cuenta) | — |
 
 ### 12.5 Seguridad (JWT y roles)
 
-- Dependencia `spring-boot-starter-security` más una librería JWT (por ejemplo `jjwt`). Sesión sin
-  estado (`STATELESS`) y un filtro que lee `Authorization: Bearer <token>`. Se conserva el cifrador
-  BCrypt de `SeguridadConfig`.
-- Token de acceso de vida corta (15 min) con `sub` = correo, `rol` y `exp`, firmado con HS256. Un token
-  de renovación más largo (7 días) permite pedir uno nuevo en `/auth/refresh` sin volver a iniciar sesión.
-- La clave de firma viene de la variable `JWT_SECRET` (nunca en el repositorio); en desarrollo tiene un
-  valor por defecto, como las credenciales de la base. **No sirve para producción.**
-- Permisos con `@PreAuthorize` o reglas por ruta, según la tabla 12.4. Las rutas públicas son las de
-  `auth`, los `GET` de categorías y productos y `POST /boletas`.
+Implementada con `spring-boot-starter-security` y `jjwt` 0.12.6:
+
+- Sesión sin estado (`STATELESS`, sin CSRF porque el token va en la cabecera). `JwtAuthFilter` lee
+  `Authorization: Bearer <token>`, verifica firma y vigencia, y deja al usuario autenticado con su rol
+  (`ROLE_ADMIN`, `ROLE_LOGISTICA` o `ROLE_CLIENTE`). Se conserva el cifrador BCrypt.
+- Las reglas de acceso están todas en `SeguridadConfig` (una sola lista de rutas y roles, la tabla 12.4).
+- Token de acceso de 15 min y de renovación de 7 días (`jwt.acceso-minutos` y `jwt.renovacion-dias` en
+  `application.yml`), firmados con HS256. El claim `tipo` impide usar uno por el otro.
+- La clave viene de `JWT_SECRET` (mínimo 32 caracteres; si es más corta la app no arranca). En desarrollo
+  tiene un valor por defecto, como las credenciales de la base. **No sirve para producción.** Con Docker
+  se cambia en `backend/.env`.
 - Sin token o con token inválido o vencido: 401. Con un rol sin permiso: 403. Ambos con el formato
   `ErrorResponse` de la sección 11.4.
-- CORS debe permitir el encabezado `Authorization` desde los orígenes del frontend (`http://localhost:5173` y `http://localhost:8081`).
+- La identidad de una compra o de una consulta de boletas sale siempre del token, nunca del cuerpo ni
+  de la URL, así que un cliente no puede hacerse pasar por otro.
+- CORS permite los orígenes del frontend (`http://localhost:5173` y `http://localhost:8081`) y la cabecera
+  `Authorization`.
 
 ### 12.6 Swagger
 
@@ -873,14 +906,15 @@ controlador lleva `@Tag`, `@Operation` y los códigos de respuesta de la tabla 1
 
 ### 12.7 Pruebas y orden de trabajo
 
-Mismo estilo de la sección 11 (JUnit 5, Mockito y MockMvc). Se suman pruebas de la compra (stock
+Mismo estilo de la sección 11 (JUnit 5, Mockito y MockMvc). Hay pruebas de la compra (stock
 insuficiente, precio congelado, descuento de stock, envío), del servicio de tokens (generación,
-vencimiento, firma alterada, renovación) y de acceso por rol (200, 401 y 403 en cada ruta privada).
+vencimiento, firma alterada, renovación), del login y del registro, y de acceso por rol: `SeguridadWebTest`
+recorre las rutas con el filtro de seguridad real y comprueba 200, 401 y 403 según el rol.
 
 1. ~~Entidades y repositorios de `Boleta` y `DetalleBoleta`.~~ Hecho.
 2. ~~Servicio de compra y endpoints de boletas.~~ Hecho, con sus pruebas.
 3. ~~Versionado `/api/v1/`.~~ Hecho.
-4. Spring Security, JWT y permisos por rol.
+4. ~~Spring Security, JWT y permisos por rol.~~ Hecho.
 5. Swagger.
-6. Pruebas.
+6. ~~Pruebas.~~ Hechas para lo implementado; faltan las de Swagger.
 7. Documentos de la sección 12.1.

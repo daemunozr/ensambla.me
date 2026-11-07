@@ -2,11 +2,13 @@ package cl.duoc.ensamblame.controller;
 
 import cl.duoc.ensamblame.dto.request.UsuarioRequest;
 import cl.duoc.ensamblame.dto.response.UsuarioResponse;
+import cl.duoc.ensamblame.security.UsuarioAutenticado;
 import cl.duoc.ensamblame.service.UsuarioService;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,6 +31,12 @@ public class UsuarioController {
     @GetMapping
     public ResponseEntity<List<UsuarioResponse>> listar() {
         return ResponseEntity.ok(usuarioService.listar());
+    }
+
+    // La cuenta en sesion, segun el token. Lo puede usar cualquier rol.
+    @GetMapping("/me")
+    public ResponseEntity<UsuarioResponse> perfil(@AuthenticationPrincipal UsuarioAutenticado actual) {
+        return ResponseEntity.ok(usuarioService.obtener(actual.run()));
     }
 
     @GetMapping("/{run}")

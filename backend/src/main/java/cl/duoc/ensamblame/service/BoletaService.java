@@ -52,20 +52,29 @@ public class BoletaService {
         return boletas.stream().map(this::aResponse).toList();
     }
 
+    /**
+     * Con "soloDeUsuario" (el RUN de un cliente) la boleta debe ser suya: la de otra cuenta o la de un
+     * invitado responde igual que una inexistente, para no revelar que existe. Null no restringe.
+     */
     @Transactional(readOnly = true)
-    public BoletaResponse obtener(String numero) {
-        return aResponse(boletaRepository.findById(numero)
-                .orElseThrow(() -> new RecursoNoEncontradoException("No existe la boleta " + numero + ".")));
+    public BoletaResponse obtener(String numero, String soloDeUsuario) {
+        Boleta boleta = boletaRepository.findById(numero)
+                .orElseThrow(() -> new RecursoNoEncontradoException("No existe la boleta " + numero + "."));
+        if (soloDeUsuario != null
+                && (boleta.getUsuario() == null || !soloDeUsuario.equals(boleta.getUsuario().getRun()))) {
+            throw new RecursoNoEncontradoException("No existe la boleta " + numero + ".");
+        }
+        return aResponse(boleta);
     }
 
     /**
-     * Registra la compra en una sola transaccion: valida el stock de todas las lineas antes de
+     * Registra la compra de la cuenta "runUsuario" (null si es de invitado) en una sola transaccion: valida el stock de todas las lineas antes de
      * escribir, congela el precio vigente de cada producto, calcula el envio y descuenta el stock.
      * Si algo falla no cambia nada.
      */
     @Transactional
-    public BoletaResponse crear(BoletaRequest request) {
-        Usuario usuario = buscarUsuario(request.usuario());
+    public BoletaResponse crear(BoletaRequest request, String runUsuario) {
+        Usuario usuario = buscarUsuario(runUsuario);
         Map<String, Integer> cantidades = consolidar(request.lineas());
         Map<String, Producto> productos = bloquearProductos(cantidades);
         validarStock(cantidades, productos);

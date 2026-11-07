@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -67,6 +68,12 @@ public class ResponseEntityHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(SolicitudInvalidaException.class)
     public ResponseEntity<Object> handleSolicitudInvalida(SolicitudInvalidaException ex) {
         return crear(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+    }
+
+    /** Credenciales incorrectas o token invalido lanzados desde un controlador o servicio: 401. */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Object> handleNoAutenticado(AuthenticationException ex) {
+        return crear(HttpStatus.UNAUTHORIZED, ex.getMessage(), null);
     }
 
     /** Cualquier otro error: se registra en el log y el cliente solo recibe un mensaje general. */
