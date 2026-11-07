@@ -233,4 +233,13 @@ class SeguridadWebTest {
                 .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void laDocumentacionSwaggerNoExigeToken() throws Exception {
+        // Aqui springdoc no esta cargado, asi que se acepta 404; lo que no puede salir es 401 ni 403.
+        for (String ruta : new String[] {"/v3/api-docs", "/swagger-ui/index.html"}) {
+            int estado = mockMvc.perform(get(ruta)).andReturn().getResponse().getStatus();
+            org.assertj.core.api.Assertions.assertThat(estado).as(ruta).isNotIn(401, 403);
+        }
+    }
 }

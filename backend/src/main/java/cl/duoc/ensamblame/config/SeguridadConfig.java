@@ -58,6 +58,8 @@ public class SeguridadConfig {
                         .accessDeniedHandler(accesoDenegado))
                 .authorizeHttpRequests(rutas -> rutas
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        // Documentacion de la API (Swagger UI y especificacion OpenAPI).
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         // Catalogo publico: cualquiera lo ve, solo el administrador lo modifica.
                         .requestMatchers(HttpMethod.GET, "/api/v1/categorias/**", "/api/v1/productos/**").permitAll()
                         .requestMatchers("/api/v1/categorias/**", "/api/v1/productos/**").hasRole("ADMIN")

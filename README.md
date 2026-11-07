@@ -627,7 +627,7 @@ Si cambia `style.css` o el marcado, conviene repetir la revisión.
 
 API REST con **Spring Boot 4.1.2**, **Java 21** y **MariaDB** en Docker, para categorías, productos,
 usuarios y boletas. El frontend **todavía no la usa**. Deja CORS habilitado para `http://localhost:5173` (Vite) y `http://localhost:8081` (frontend en Docker).
-Lo que falta para la Evaluación 3 (Swagger y la integración con el frontend) está en la [sección 12](#12-evaluación-3-pendiente-en-backend-y-base-de-datos).
+La API se documenta con Swagger (sección 11.4). Lo que falta para la Evaluación 3 (la integración con el frontend y los documentos) está en la [sección 12](#12-evaluación-3-pendiente-en-backend-y-base-de-datos).
 
 ### 11.1 Requisitos
 
@@ -647,13 +647,13 @@ orden. El backend llega a la base por el host (`host.docker.internal` y el puert
 | Carpeta | Qué levanta | Comando | URL / puerto por defecto | Variable |
 |---|---|---|---|---|
 | `database/` | MariaDB 11.8 | `docker compose up -d` | `localhost:3307` | `DB_PORT` |
-| `backend/` | API Spring Boot (`Dockerfile` propio) | `docker compose up -d --build` | http://localhost:8080 | `API_PORT` |
+| `backend/` | API Spring Boot (`Dockerfile` propio) | `docker compose up -d --build` | http://localhost:8080 (Swagger UI en `/swagger-ui.html`) | `API_PORT` |
 | `frontend/` | React compilado y servido con nginx | `docker compose up -d --build` | http://localhost:8081 | `WEB_PORT` |
 
 Los puertos son poco comunes a propósito (la base usa 3307 y no 3306). Para cambiar un puerto o una
 credencial, se copia el `.env.example` de la carpeta como `.env` (no se versiona). Si se cambia
 `DB_PORT`, `DB_NAME`, `DB_USER` o `DB_PASSWORD`, el mismo valor va en el `.env` de `database/` y en el de
-`backend/`; `CORS_ORIGEN` (en `backend/`) debe incluir la URL del frontend.
+`backend/`; `CORS_ORIGEN` (en `backend/`) debe incluir la URL del frontend. `SWAGGER_ENABLED=false` apaga la documentación.
 
 Para desarrollar sin contenedor de la API: `docker compose up -d` en `database/` (espera a que quede
 «healthy» con `docker compose ps`), luego `mvn spring-boot:run` y `mvn test` en `backend/` (las
@@ -685,7 +685,7 @@ cliente ──JSON──▶ controller ──▶ service ──▶ repository �
 | `dto.request` / `dto.response` | JSON de entrada y salida; las entidades nunca se exponen |
 | `service` | Reglas de negocio (duplicados, categoría con productos…) y paso de entidad a DTO |
 | `exception` | `ResponseEntityHandler` convierte cada excepción en una respuesta de error |
-| `config` | `CorsConfig`, `SeguridadConfig` (reglas de acceso, BCrypt y autenticación) y `CargaInicial` |
+| `config` | `CorsConfig`, `SeguridadConfig` (reglas de acceso, BCrypt y autenticación), `OpenApiConfig` (Swagger) y `CargaInicial` |
 | `security` | `JwtService` (genera y verifica los tokens), `JwtAuthFilter` (lee el token de cada petición), `UsuarioDetailsService` y los manejadores de 401 y 403 |
 | `util` | `ValidadorRun`: dígito verificador del RUN (módulo 11) |
 
@@ -708,6 +708,13 @@ cliente ──JSON──▶ controller ──▶ service ──▶ repository �
 | Boletas | `GET /api/v1/boletas` (opcional `?usuario=123456785`) | 200 | Admin y Logística (todas); Cliente (solo las suyas, ignora `?usuario=`) |
 | | `GET /api/v1/boletas/{numero}` | 200 (404 si no existe o no es del cliente) | Admin y Logística; Cliente solo la suya |
 | | `POST /api/v1/boletas` | 201 (404 si falta un producto, 409 sin stock) | Pública; con token, a nombre de la cuenta |
+
+**Swagger.** La documentación interactiva está en http://localhost:8080/swagger-ui.html y la especificación
+OpenAPI en `/v3/api-docs`; ambas son públicas y se apagan con `SWAGGER_ENABLED=false`. Para probar una ruta
+privada: (1) `POST /api/v1/auth/login` con una cuenta de ejemplo (el cuerpo ya viene relleno con
+`camila@gmail.com`); (2) copiar el `accessToken` de la respuesta; (3) pulsar **Authorize** y pegarlo. Dura 15
+minutos. Cada operación indica el rol necesario y sus respuestas (400, 401, 403, 404, 409); el candado marca
+las privadas y `POST /boletas` acepta el token pero no lo exige. Los errores comparten el esquema `ErrorResponse`.
 
 Todas las rutas cuelgan de `/api/v1/`; las rutas sin versión (`/api/productos`) ya no existen y
 responden 404. El identificador (código, SKU o RUN) no cambia al editar: en `PUT` manda el de la ruta.
@@ -777,9 +784,10 @@ correo de `duoc.cl`, `profesor.duoc.cl` o `gmail.com` y contraseña de 4–10.
 - `JWT_SECRET` tiene un valor de desarrollo; en producción debe ser otro, de al menos 32 caracteres.
 - `ddl-auto: update` modifica las tablas solo en desarrollo; no hay migraciones.
 - Faltan la compatibilidad de componentes y los blogs del modelo completo.
-- Las 108 pruebas no usan la base de datos. La mayoría son unitarias (Mockito y MockMvc); las de
+- Las 117 pruebas no usan MariaDB. La mayoría son unitarias (Mockito y MockMvc); las de
   `SeguridadWebTest` levantan el filtro de seguridad real con tokens reales para recorrer las reglas
-  de acceso por rol.
+  de acceso por rol, y `SwaggerTest` arranca la aplicación completa con H2 en memoria (solo en pruebas,
+  no entra en la imagen) para revisar la especificación OpenAPI y recorrer login → token → consulta.
 
 ## 12. Evaluación 3: pendiente en backend y base de datos
 
@@ -801,7 +809,7 @@ CRUD de categorías, productos y usuarios.
 | Indicador | Peso | Hoy | Falta |
 |---|---:|---|---|
 | IE3.1.1 Backend y base de datos | 8 % | CRUD de categorías, productos y usuarios, y boletas con detalle y compra transaccional (sección 12.3), sobre MariaDB | Nada pendiente |
-| IE3.2.1 API REST y Swagger | 8 % | Endpoints CRUD, de boletas y de auth versionados en `/api/v1/...` | Swagger UI (12.6) |
+| IE3.2.1 API REST y Swagger | 8 % | Endpoints CRUD, de boletas y de auth versionados en `/api/v1/...`, documentados en Swagger UI (12.6) | Nada pendiente |
 | IE3.3.1 Autenticación JWT y roles | 6 % | Login, registro, JWT de acceso y renovación, filtro de seguridad y permisos por rol (12.5) | Nada pendiente en el backend |
 | IE3.2.2 Integración backend-frontend | 6 % | CORS hacia `http://localhost:5173` y `:8081` | Llamadas `fetch`/`axios` desde React. **Frontend**, fuera de este apartado |
 | IE3.3.2 Sesión en el frontend | 6 % | Sesión simulada en `sessionStorage` | Guardar el token y mantenerlo al recargar. **Frontend** |
@@ -858,7 +866,7 @@ erDiagram
 
 ### 12.4 Endpoints
 
-Todas las rutas cuelgan de `/api/v1/` y ya están implementadas (sección 11.4); solo falta documentarlas en Swagger.
+Todas las rutas cuelgan de `/api/v1/` y ya están implementadas y documentadas en Swagger (sección 11.4).
 Formato del Anexo 3.
 Roles: Admin (`ADMIN`), Logística (`LOGISTICA`, el «Vendedor» del enunciado) y Cliente (`CLIENTE`).
 
@@ -900,21 +908,29 @@ Implementada con `spring-boot-starter-security` y `jjwt` 0.12.6:
 
 ### 12.6 Swagger
 
-`springdoc-openapi-starter-webmvc-ui`: interfaz en `/swagger-ui.html` y especificación en
-`/v3/api-docs`. Se declara el esquema Bearer para probar las rutas privadas con «Authorize», y cada
-controlador lleva `@Tag`, `@Operation` y los códigos de respuesta de la tabla 12.4.
+Implementado con `springdoc-openapi-starter-webmvc-ui` 3.2.0: interfaz en `/swagger-ui.html` y
+especificación OpenAPI 3.1 en `/v3/api-docs`, ambas públicas (`SWAGGER_ENABLED=false` las apaga).
+
+- `OpenApiConfig` define el título, la versión `v1`, cómo autenticarse y el esquema Bearer para «Authorize».
+  Un personalizador agrega 401 y 403 a toda operación privada y fija `ErrorResponse` como cuerpo de
+  cualquier error, así no se repite en cada método.
+- Cada controlador lleva `@Tag`; cada método, `@Operation` (resumen y rol requerido) y `@ApiResponse` con
+  los códigos de la tabla 12.4. Los DTO traen `@Schema` con descripción y ejemplo, de modo que «Try it out»
+  ya viene con cuerpos válidos.
+- Solo se documenta `/api/v1/**`.
 
 ### 12.7 Pruebas y orden de trabajo
 
 Mismo estilo de la sección 11 (JUnit 5, Mockito y MockMvc). Hay pruebas de la compra (stock
 insuficiente, precio congelado, descuento de stock, envío), del servicio de tokens (generación,
 vencimiento, firma alterada, renovación), del login y del registro, y de acceso por rol: `SeguridadWebTest`
-recorre las rutas con el filtro de seguridad real y comprueba 200, 401 y 403 según el rol.
+recorre las rutas con el filtro de seguridad real y comprueba 200, 401 y 403 según el rol; `SwaggerTest`
+arranca la aplicación con H2 y comprueba que toda ruta esté documentada, con resumen, seguridad y errores.
 
 1. ~~Entidades y repositorios de `Boleta` y `DetalleBoleta`.~~ Hecho.
 2. ~~Servicio de compra y endpoints de boletas.~~ Hecho, con sus pruebas.
 3. ~~Versionado `/api/v1/`.~~ Hecho.
 4. ~~Spring Security, JWT y permisos por rol.~~ Hecho.
-5. Swagger.
-6. ~~Pruebas.~~ Hechas para lo implementado; faltan las de Swagger.
+5. ~~Swagger.~~ Hecho.
+6. ~~Pruebas.~~ Hechas.
 7. Documentos de la sección 12.1.

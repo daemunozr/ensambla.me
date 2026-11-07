@@ -22,6 +22,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-clave-de-desarrollo-ensamblame-cambiar-en-produccion-0123456789}
       # Origenes del frontend autorizados por CORS: el de Docker (8081) y el de Vite (5173).
       APP_CORS_ORIGEN: ${CORS_ORIGEN:-http://localhost:8081,http://localhost:5173}
+      # Swagger UI (http://localhost:8080/swagger-ui.html). Poner false para apagarlo, por ejemplo en produccion.
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
     extra_hosts:
       # En Linux, host.docker.internal no existe por defecto; en Mac y Windows ya viene definido.
       - "host.docker.internal:host-gateway"

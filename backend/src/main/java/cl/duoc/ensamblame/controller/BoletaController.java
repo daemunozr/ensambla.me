@@ -1,11 +1,19 @@
 package cl.duoc.ensamblame.controller;
 
+import cl.duoc.ensamblame.config.OpenApiConfig;
 import cl.duoc.ensamblame.dto.request.BoletaRequest;
 import cl.duoc.ensamblame.dto.response.BoletaResponse;
 import cl.duoc.ensamblame.exception.TokenInvalidoException;
 import cl.duoc.ensamblame.model.TipoUsuario;
 import cl.duoc.ensamblame.security.UsuarioAutenticado;
 import cl.duoc.ensamblame.service.BoletaService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.extensions.Extension;
+import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -20,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Una boleta se registra y se consulta, pero no se edita ni se elimina. */
+@Tag(name = "Boletas", description = "Compras. Comprar no exige sesion; consultar boletas si.")
 @RestController
 @RequestMapping("/api/v1/boletas")
 public class BoletaController {
@@ -32,13 +41,22 @@ public class BoletaController {
 
     // GET /api/v1/boletas   o   GET /api/v1/boletas?usuario=123456785 (solo el personal puede filtrar)
     // Un cliente solo ve sus boletas: se ignora el filtro y se usa su RUN.
+    @Operation(summary = "Lista las boletas",
+            description = "ADMIN y LOGISTICA ven todas (y pueden filtrar con `usuario`); un CLIENTE solo ve las suyas e ignora el filtro. De la mas reciente a la mas antigua.")
+    @ApiResponse(responseCode = "200", description = "Lista de boletas")
+    @SecurityRequirement(name = "bearerAuth")
     @GetMapping
-    public ResponseEntity<List<BoletaResponse>> listar(@RequestParam(required = false) String usuario,
+    public ResponseEntity<List<BoletaResponse>> listar(@Parameter(description = "RUN de la cuenta; solo lo usa el personal (ADMIN y LOGISTICA)") @RequestParam(required = false) String usuario,
             @AuthenticationPrincipal UsuarioAutenticado actual) {
         String restringidoA = restringirA(actual);
         return ResponseEntity.ok(boletaService.listar(restringidoA != null ? restringidoA : usuario));
     }
 
+    @Operation(summary = "Obtiene una boleta",
+            description = "ADMIN y LOGISTICA ven cualquiera. Un CLIENTE solo ve las suyas: la de otra cuenta o la de un invitado responde 404.")
+    @ApiResponse(responseCode = "200", description = "La boleta con su detalle, neto, IVA y total")
+    @ApiResponse(responseCode = "404", description = "No existe la boleta (o no es del cliente)")
+    @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/{numero}")
     public ResponseEntity<BoletaResponse> obtener(@PathVariable String numero,
             @AuthenticationPrincipal UsuarioAutenticado actual) {
@@ -46,6 +64,15 @@ public class BoletaController {
     }
 
     // Sin token (actual == null) la compra es de invitado; con token queda a nombre de la cuenta.
+    @Operation(summary = "Registra una compra",
+            description = "Publica. Con token, la boleta queda a nombre de la cuenta; sin token, es de invitado. Los precios y el envio los calcula el servidor: congela el precio vigente de cada producto, descuenta el stock y numera la boleta ORD-AAAA-NNNN. Todo ocurre en una sola transaccion.",
+            extensions = @Extension(properties = @ExtensionProperty(name = OpenApiConfig.TOKEN_OPCIONAL, value = "true")))
+    @ApiResponse(responseCode = "201", description = "Boleta creada")
+    @ApiResponse(responseCode = "400", description = "Datos invalidos")
+    @ApiResponse(responseCode = "401", description = "Se envio un token invalido o vencido")
+    @ApiResponse(responseCode = "404", description = "No existe un producto")
+    @ApiResponse(responseCode = "409", description = "Sin stock suficiente")
+    @SecurityRequirement(name = "bearerAuth")
     @PostMapping
     public ResponseEntity<BoletaResponse> crear(@Valid @RequestBody BoletaRequest request,
             @AuthenticationPrincipal UsuarioAutenticado actual) {
