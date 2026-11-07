@@ -6,6 +6,7 @@ import cl.duoc.ensamblame.exception.RecursoNoEncontradoException;
 import cl.duoc.ensamblame.exception.ReglaNegocioException;
 import cl.duoc.ensamblame.exception.SolicitudInvalidaException;
 import cl.duoc.ensamblame.model.Usuario;
+import cl.duoc.ensamblame.repository.BoletaRepository;
 import cl.duoc.ensamblame.repository.UsuarioRepository;
 import cl.duoc.ensamblame.util.ValidadorRun;
 import java.util.List;
@@ -17,10 +18,13 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
+    private final BoletaRepository boletaRepository;
 
-    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
+    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
+            BoletaRepository boletaRepository) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
+        this.boletaRepository = boletaRepository;
     }
 
     public List<UsuarioResponse> listar() {
@@ -66,7 +70,11 @@ public class UsuarioService {
     }
 
     public void eliminar(String run) {
-        usuarioRepository.delete(buscar(run));
+        Usuario usuario = buscar(run);
+        if (boletaRepository.existsByUsuarioRun(usuario.getRun())) {
+            throw new ReglaNegocioException("No se puede eliminar el usuario " + run + ": tiene boletas.");
+        }
+        usuarioRepository.delete(usuario);
     }
 
     private Usuario buscar(String run) {

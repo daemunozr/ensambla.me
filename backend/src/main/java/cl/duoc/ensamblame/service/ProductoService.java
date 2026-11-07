@@ -6,6 +6,7 @@ import cl.duoc.ensamblame.exception.RecursoNoEncontradoException;
 import cl.duoc.ensamblame.exception.ReglaNegocioException;
 import cl.duoc.ensamblame.model.Categoria;
 import cl.duoc.ensamblame.model.Producto;
+import cl.duoc.ensamblame.repository.BoletaRepository;
 import cl.duoc.ensamblame.repository.CategoriaRepository;
 import cl.duoc.ensamblame.repository.ProductoRepository;
 import java.util.List;
@@ -16,10 +17,13 @@ public class ProductoService {
 
     private final ProductoRepository productoRepository;
     private final CategoriaRepository categoriaRepository;
+    private final BoletaRepository boletaRepository;
 
-    public ProductoService(ProductoRepository productoRepository, CategoriaRepository categoriaRepository) {
+    public ProductoService(ProductoRepository productoRepository, CategoriaRepository categoriaRepository,
+            BoletaRepository boletaRepository) {
         this.productoRepository = productoRepository;
         this.categoriaRepository = categoriaRepository;
+        this.boletaRepository = boletaRepository;
     }
 
     /** Sin filtros devuelve todos; con "categoria" o con "q" (texto en nombre o SKU) filtra. */
@@ -60,7 +64,11 @@ public class ProductoService {
     }
 
     public void eliminar(String sku) {
-        productoRepository.delete(buscar(sku));
+        Producto producto = buscar(sku);
+        if (boletaRepository.existsByDetallesProductoSku(sku)) {
+            throw new ReglaNegocioException("No se puede eliminar el producto " + sku + ": figura en boletas.");
+        }
+        productoRepository.delete(producto);
     }
 
     private Producto buscar(String sku) {

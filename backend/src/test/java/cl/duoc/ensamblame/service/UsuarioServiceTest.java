@@ -14,6 +14,7 @@ import cl.duoc.ensamblame.exception.ReglaNegocioException;
 import cl.duoc.ensamblame.exception.SolicitudInvalidaException;
 import cl.duoc.ensamblame.model.TipoUsuario;
 import cl.duoc.ensamblame.model.Usuario;
+import cl.duoc.ensamblame.repository.BoletaRepository;
 import cl.duoc.ensamblame.repository.UsuarioRepository;
 import java.util.Arrays;
 import java.util.Optional;
@@ -34,11 +35,14 @@ class UsuarioServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private BoletaRepository boletaRepository;
+
     private UsuarioService servicio;
 
     @BeforeEach
     void preparar() {
-        servicio = new UsuarioService(usuarioRepository, passwordEncoder);
+        servicio = new UsuarioService(usuarioRepository, passwordEncoder, boletaRepository);
     }
 
     private UsuarioRequest request(String run, String correo) {
@@ -117,5 +121,28 @@ class UsuarioServiceTest {
         UsuarioResponse respuesta = servicio.actualizar("123456785", request("123456785", "camila@gmail.com"));
 
         assertEquals("camila@gmail.com", respuesta.correo());
+    }
+
+    @Test
+    void eliminarUnUsuarioConBoletasLanzaConflictoYNoLoBorra() {
+        Usuario existente = new Usuario();
+        existente.setRun("123456785");
+        when(usuarioRepository.findById("123456785")).thenReturn(Optional.of(existente));
+        when(boletaRepository.existsByUsuarioRun("123456785")).thenReturn(true);
+
+        assertThrows(ReglaNegocioException.class, () -> servicio.eliminar("123456785"));
+
+        verify(usuarioRepository, never()).delete(any());
+    }
+
+    @Test
+    void eliminarUnUsuarioSinBoletasLoBorra() {
+        Usuario existente = new Usuario();
+        existente.setRun("123456785");
+        when(usuarioRepository.findById("123456785")).thenReturn(Optional.of(existente));
+
+        servicio.eliminar("123456785");
+
+        verify(usuarioRepository).delete(existente);
     }
 }

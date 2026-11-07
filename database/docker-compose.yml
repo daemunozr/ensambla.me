@@ -7,6 +7,9 @@
 #
 # Los scripts .sql / .sh que se pongan en ./init se ejecutan una sola vez, al
 # crear la base por primera vez (cuando el volumen esta vacio).
+# Nombre fijo del proyecto: sin el, Docker usa el de la carpeta y se mezcla con otros
+# proyectos que tambien tengan una carpeta "database".
+name: ensamblame-database
 services:
   mariadb:
     image: mariadb:11.8

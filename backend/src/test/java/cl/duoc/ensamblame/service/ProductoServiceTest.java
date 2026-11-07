@@ -13,6 +13,7 @@ import cl.duoc.ensamblame.exception.RecursoNoEncontradoException;
 import cl.duoc.ensamblame.exception.ReglaNegocioException;
 import cl.duoc.ensamblame.model.Categoria;
 import cl.duoc.ensamblame.model.Producto;
+import cl.duoc.ensamblame.repository.BoletaRepository;
 import cl.duoc.ensamblame.repository.CategoriaRepository;
 import cl.duoc.ensamblame.repository.ProductoRepository;
 import java.math.BigDecimal;
@@ -33,13 +34,16 @@ class ProductoServiceTest {
     @Mock
     private CategoriaRepository categoriaRepository;
 
+    @Mock
+    private BoletaRepository boletaRepository;
+
     private ProductoService servicio;
 
     private final Categoria cpu = new Categoria("cpu", "Procesadores (CPU)", 1);
 
     @BeforeEach
     void preparar() {
-        servicio = new ProductoService(productoRepository, categoriaRepository);
+        servicio = new ProductoService(productoRepository, categoriaRepository, boletaRepository);
     }
 
     private ProductoRequest request(String sku) {
@@ -102,6 +106,16 @@ class ProductoServiceTest {
         when(productoRepository.findById("NO-EXISTE")).thenReturn(Optional.empty());
 
         assertThrows(RecursoNoEncontradoException.class, () -> servicio.eliminar("NO-EXISTE"));
+
+        verify(productoRepository, never()).delete(any());
+    }
+
+    @Test
+    void eliminarUnProductoConBoletasLanzaConflictoYNoLoBorra() {
+        when(productoRepository.findById("CPU-R5-7600")).thenReturn(Optional.of(new Producto()));
+        when(boletaRepository.existsByDetallesProductoSku("CPU-R5-7600")).thenReturn(true);
+
+        assertThrows(ReglaNegocioException.class, () -> servicio.eliminar("CPU-R5-7600"));
 
         verify(productoRepository, never()).delete(any());
     }

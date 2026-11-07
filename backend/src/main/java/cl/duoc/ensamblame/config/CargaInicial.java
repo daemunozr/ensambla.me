@@ -1,9 +1,12 @@
 package cl.duoc.ensamblame.config;
 
+import cl.duoc.ensamblame.model.Boleta;
 import cl.duoc.ensamblame.model.Categoria;
 import cl.duoc.ensamblame.model.Producto;
+import cl.duoc.ensamblame.model.TipoEntrega;
 import cl.duoc.ensamblame.model.TipoUsuario;
 import cl.duoc.ensamblame.model.Usuario;
+import cl.duoc.ensamblame.repository.BoletaRepository;
 import cl.duoc.ensamblame.repository.CategoriaRepository;
 import cl.duoc.ensamblame.repository.ProductoRepository;
 import cl.duoc.ensamblame.repository.UsuarioRepository;
@@ -24,13 +27,16 @@ public class CargaInicial {
 
     @Bean
     public CommandLineRunner cargarDatos(CategoriaRepository categorias, ProductoRepository productos,
-            UsuarioRepository usuarios, PasswordEncoder passwordEncoder) {
+            UsuarioRepository usuarios, BoletaRepository boletas, PasswordEncoder passwordEncoder) {
         return args -> {
             if (categorias.count() == 0) {
                 cargarCatalogo(categorias, productos);
             }
             if (usuarios.count() == 0) {
                 cargarUsuarios(usuarios, passwordEncoder);
+            }
+            if (boletas.count() == 0) {
+                cargarBoletas(boletas, productos, usuarios);
             }
         };
     }
@@ -58,6 +64,52 @@ public class CargaInicial {
                 producto("COOL-AIR-TOWER", "DeepCool AK400 (aire)", "34990", null, 19, 5, refrigeracion),
                 producto("GPU-RTX4060", "NVIDIA GeForce RTX 4060 8 GB", "399990", 10, 11, 4, gpu),
                 producto("PER-KB-MECH", "Teclado mecanico Redragon Kumara K552", "34990", 20, 25, 6, perifericos)));
+    }
+
+    // Boletas de ejemplo. Se guardan tal cual: el stock sembrado ya es el actual y no se descuenta.
+    private void cargarBoletas(BoletaRepository boletas, ProductoRepository productos,
+            UsuarioRepository usuarios) {
+        Usuario camila = usuarios.findById("123456785").orElseThrow();
+
+        Boleta primera = boleta("ORD-2026-0001", camila, LocalDate.of(2026, 10, 5), "Camila Soto Vera",
+                "camila@gmail.com", "Irarrazaval 2550, Nunoa", "RM-04", TipoEntrega.DOMICILIO,
+                "Tarjeta terminada en 4242", "4990");
+        agregar(primera, productos, "CPU-R5-7600", 1, "212492");
+        agregar(primera, productos, "RAM-DDR5-32-6000", 1, "129990");
+
+        Boleta segunda = boleta("ORD-2026-0002", null, LocalDate.of(2026, 10, 12), "Pedro Rojas",
+                "pedro@gmail.com", "Av. Matta 410, Santiago", "RM-01", TipoEntrega.RETIRO,
+                "Tarjeta terminada en 4242", "0");
+        agregar(segunda, productos, "PER-KB-MECH", 1, "27992");
+
+        Boleta tercera = boleta("ORD-2026-0003", camila, LocalDate.of(2026, 10, 20), "Camila Soto Vera",
+                "camila@gmail.com", "Irarrazaval 2550, Nunoa", "RM-04", TipoEntrega.DOMICILIO,
+                "Tarjeta terminada en 4242", "4990");
+        agregar(tercera, productos, "SSD-NVME-1TB", 1, "67493");
+        agregar(tercera, productos, "COOL-AIR-TOWER", 1, "34990");
+
+        boletas.saveAll(List.of(primera, segunda, tercera));
+    }
+
+    private Boleta boleta(String numero, Usuario usuario, LocalDate fecha, String nombre, String correo,
+            String direccion, String comuna, TipoEntrega entrega, String medioPago, String costoEnvio) {
+        Boleta boleta = new Boleta();
+        boleta.setNumero(numero);
+        boleta.setUsuario(usuario);
+        boleta.setFecha(fecha);
+        boleta.setNombre(nombre);
+        boleta.setCorreo(correo);
+        boleta.setDireccion(direccion);
+        boleta.setComuna(comuna);
+        boleta.setEntrega(entrega);
+        boleta.setMedioPago(medioPago);
+        boleta.setCostoEnvio(new BigDecimal(costoEnvio));
+        return boleta;
+    }
+
+    private void agregar(Boleta boleta, ProductoRepository productos, String sku, int cantidad,
+            String precioUnitario) {
+        boleta.agregarDetalle(productos.findById(sku).orElseThrow(), cantidad, new BigDecimal(precioUnitario));
     }
 
     private Producto producto(String sku, String nombre, String precio, Integer descuento, int stock,

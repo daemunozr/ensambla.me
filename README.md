@@ -626,9 +626,9 @@ Si cambia `style.css` o el marcado, conviene repetir la revisión.
 
 ## 11. Backend (API REST)
 
-API REST con **Spring Boot 4.1.2**, **Java 21** y **MariaDB** en Docker, para categorías, productos
-y usuarios. El frontend **todavía no la usa**. Deja CORS habilitado para `http://localhost:5173`.
-Lo que falta para la Evaluación 3 (boletas, Swagger, JWT y roles) está en la [sección 12](#12-evaluación-3-pendiente-en-backend-y-base-de-datos).
+API REST con **Spring Boot 4.1.2**, **Java 21** y **MariaDB** en Docker, para categorías, productos,
+usuarios y boletas. El frontend **todavía no la usa**. Deja CORS habilitado para `http://localhost:5173`.
+Lo que falta para la Evaluación 3 (versionado, Swagger, JWT y roles) está en la [sección 12](#12-evaluación-3-pendiente-en-backend-y-base-de-datos).
 
 ### 11.1 Requisitos
 
@@ -652,8 +652,8 @@ pruebas no necesitan la base). `docker compose down` detiene cada servicio; en `
 también borra los datos. Los `.sql` o `.sh` de `database/init/` se ejecutan una sola vez, al crear la
 base con el volumen vacío.
 
-Al arrancar por primera vez, `CargaInicial` crea las tablas (JPA) y carga 9 categorías, 9 productos
-y 3 usuarios de ejemplo (los de la sección 1); si ya hay datos, no carga nada.
+Al arrancar por primera vez, `CargaInicial` crea las tablas (JPA) y carga 9 categorías, 9 productos,
+3 usuarios de ejemplo (los de la sección 1) y 3 boletas; si ya hay datos, no carga nada.
 
 La conexión está en `src/main/resources/application.yml` y cada valor se cambia con `DB_HOST`,
 `DB_PORT`, `DB_NAME`, `DB_USER` o `DB_PASSWORD`. Los valores por defecto son los de desarrollo de
@@ -670,7 +670,7 @@ cliente ──JSON──▶ controller ──▶ service ──▶ repository �
 
 | Paquete (`cl.duoc.ensamblame`) | Qué hace |
 |---|---|
-| `model` | Entidades JPA: `Categoria`, `Producto`, `Usuario` y el enum `TipoUsuario` |
+| `model` | Entidades JPA: `Categoria`, `Producto`, `Usuario`, `Boleta` y `DetalleBoleta` (clave compuesta `DetalleBoletaId`), y los enum `TipoUsuario` y `TipoEntrega` |
 | `repository` | Interfaces `JpaRepository`: Spring genera las consultas |
 | `controller` | Recibe la petición, valida el `Request` (`@Valid`) y devuelve un `ResponseEntity` |
 | `dto.request` / `dto.response` | JSON de entrada y salida; las entidades nunca se exponen |
@@ -688,12 +688,23 @@ cliente ──JSON──▶ controller ──▶ service ──▶ repository �
 | | `DELETE /api/categorias/{codigo}` | 204 (409 si tiene productos) |
 | Productos | `GET /api/productos` (opcional `?categoria=cpu` o `?q=ryzen`), `GET /api/productos/{sku}` | 200 |
 | | `POST /api/productos`, `PUT /api/productos/{sku}` | 201 al crear, 200 al editar |
-| | `DELETE /api/productos/{sku}` | 204 |
+| | `DELETE /api/productos/{sku}` | 204 (409 si figura en boletas) |
 | Usuarios | `GET /api/usuarios`, `GET /api/usuarios/{run}` | 200 |
 | | `POST /api/usuarios`, `PUT /api/usuarios/{run}` | 201 al crear, 200 al editar |
-| | `DELETE /api/usuarios/{run}` | 204 |
+| | `DELETE /api/usuarios/{run}` | 204 (409 si tiene boletas) |
+| Boletas | `GET /api/boletas` (opcional `?usuario=123456785`), `GET /api/boletas/{numero}` | 200 (404 si no existe) |
+| | `POST /api/boletas` | 201 (404 si falta un producto o el usuario, 409 sin stock) |
 
-El identificador (código, SKU o RUN) no cambia al editar: en `PUT` manda el de la ruta.
+El identificador (código, SKU o RUN) no cambia al editar: en `PUT` manda el de la ruta. Las boletas
+solo se registran y se consultan: no hay `PUT` ni `DELETE`.
+
+`POST /api/boletas` recibe el comprador (`nombre`, `correo`, `direccion`, `comuna`), `entrega`
+(`DOMICILIO` o `RETIRO`), `medioPago`, `lineas` (`sku` y `cantidad`) y, opcional, el `usuario` (RUN);
+sin él la compra es de invitado. Los precios y el envío nunca vienen del cliente. En una sola
+transacción el servidor valida el stock de todas las líneas, congela el precio vigente (con el
+descuento), calcula el envío (domicilio $4.990, gratis desde $200.000; retiro gratis), descuenta el
+stock y numera la boleta `ORD-AAAA-NNNN`. La respuesta trae el detalle, el subtotal, el envío, el
+total y el desglose de IVA (neto + IVA = total). Las líneas con el mismo SKU se suman.
 
 Los errores tienen el formato `ErrorResponse`:
 
@@ -727,8 +738,10 @@ correo de `duoc.cl`, `profesor.duoc.cl` o `gmail.com` y contraseña de 4–10.
   sesión, tokens ni control de acceso por rol (cualquiera que llegue a la API usa todos los
   endpoints); se agregan en la sección 12.
 - `ddl-auto: update` modifica las tablas solo en desarrollo; no hay migraciones.
-- Faltan órdenes, compatibilidad de componentes y blogs del modelo completo.
-- Las 30 pruebas son unitarias (Mockito y MockMvc); ninguna levanta la base de datos.
+- Faltan la compatibilidad de componentes y los blogs del modelo completo.
+- Una compra de invitado y el filtro `?usuario=` se apoyan en datos del cuerpo y de la URL: no hay
+  autenticación que los respalde (se resuelve en la sección 12).
+- Las 57 pruebas son unitarias (Mockito y MockMvc); ninguna levanta la base de datos.
 
 ## 12. Evaluación 3: pendiente en backend y base de datos
 
@@ -749,8 +762,8 @@ CRUD de categorías, productos y usuarios.
 
 | Indicador | Peso | Hoy | Falta |
 |---|---:|---|---|
-| IE3.1.1 Backend y base de datos | 8 % | CRUD de categorías, productos y usuarios sobre MariaDB, con reglas de negocio | Boletas y detalle, y la lógica de compra (sección 12.3) |
-| IE3.2.1 API REST y Swagger | 8 % | Endpoints CRUD en `/api/...` | Versionado `/api/v1/`, endpoints de boletas y auth, Swagger UI (12.4, 12.6) |
+| IE3.1.1 Backend y base de datos | 8 % | CRUD de categorías, productos y usuarios, y boletas con detalle y compra transaccional (sección 12.3), sobre MariaDB | Nada pendiente en el modelo; depende de la autenticación para asociar la boleta a la cuenta en sesión |
+| IE3.2.1 API REST y Swagger | 8 % | Endpoints CRUD y de boletas en `/api/...` | Versionado `/api/v1/`, endpoints de auth, Swagger UI (12.4, 12.6) |
 | IE3.3.1 Autenticación JWT y roles | 6 % | Contraseña con BCrypt y enum `TipoUsuario` | Login, JWT con renovación, filtro de seguridad y permisos por rol (12.5) |
 | IE3.2.2 Integración backend-frontend | 6 % | CORS hacia `http://localhost:5173` | Llamadas `fetch`/`axios` desde React. **Frontend**, fuera de este apartado |
 | IE3.3.2 Sesión en el frontend | 6 % | Sesión simulada en `sessionStorage` | Guardar el token y mantenerlo al recargar. **Frontend** |
@@ -792,7 +805,7 @@ erDiagram
   }
 ```
 
-`CATEGORIA`, `PRODUCTO` y `USUARIO` ya existen (sección 11). A definir:
+`CATEGORIA`, `PRODUCTO` y `USUARIO` ya existían; `BOLETA` y `DETALLE_BOLETA` están implementadas (sección 11.4). Reglas aplicadas:
 
 - La compra (`POST` de la boleta) es una sola transacción: valida el stock de cada línea, guarda el
   precio vigente (con el descuento aplicado), descuenta el stock y calcula el envío (domicilio $4.990,
@@ -801,7 +814,9 @@ erDiagram
 - El número sigue el formato `ORD-AAAA-NNNN`, correlativo dentro del año.
 - Integridad: no se elimina un producto con boletas ni un usuario con boletas (409, como la categoría
   con productos). Esto difiere de la tienda simulada, que conserva el detalle aunque el producto se borre.
-- Las tablas las sigue creando JPA (`ddl-auto: update`); `CargaInicial` suma boletas de ejemplo.
+- Las tablas las sigue creando JPA (`ddl-auto: update`) y `CargaInicial` suma 3 boletas de ejemplo.
+- El correlativo se calcula leyendo la última boleta del año: dos compras simultáneas de productos
+  distintos podrían pedir el mismo número y una fallaría con 500. Es una limitación conocida.
 
 ### 12.4 Endpoints a implementar
 
@@ -851,8 +866,8 @@ Mismo estilo de la sección 11 (JUnit 5, Mockito y MockMvc). Se suman pruebas de
 insuficiente, precio congelado, descuento de stock, envío), del servicio de tokens (generación,
 vencimiento, firma alterada, renovación) y de acceso por rol (200, 401 y 403 en cada ruta privada).
 
-1. Entidades y repositorios de `Boleta` y `DetalleBoleta`.
-2. Servicio de compra y endpoints de boletas.
+1. ~~Entidades y repositorios de `Boleta` y `DetalleBoleta`.~~ Hecho.
+2. ~~Servicio de compra y endpoints de boletas.~~ Hecho, con sus pruebas.
 3. Versionado `/api/v1/`.
 4. Spring Security, JWT y permisos por rol.
 5. Swagger.

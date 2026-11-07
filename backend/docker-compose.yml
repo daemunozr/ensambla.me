@@ -3,6 +3,9 @@
 #
 #   docker compose up -d --build    construye la imagen y levanta la API (http://localhost:8080)
 #   docker compose down             la detiene
+# Nombre fijo del proyecto: sin el, Docker usa el de la carpeta y se mezcla con otros
+# proyectos que tambien tengan una carpeta "backend".
+name: ensamblame-backend
 services:
   backend:
     build: .
