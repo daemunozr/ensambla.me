@@ -59,7 +59,7 @@ describe("Login", () => {
 
 		await entrar("admin@duoc.cl", "mala1234");
 
-		expect(screen.getByRole("alert")).toHaveTextContent("Correo o contrasena incorrectos.");
+		expect(await screen.findByRole("alert")).toHaveTextContent("Correo o contrasena incorrectos.");
 		expect(window.sessionStorage.getItem("sesion")).toBeNull();
 	});
 
@@ -68,7 +68,7 @@ describe("Login", () => {
 
 		await entrar("admin@duoc.cl", "admin1234");
 
-		expect(screen.getByText("Panel de administracion")).toBeInTheDocument();
+		expect(await screen.findByText("Panel de administracion")).toBeInTheDocument();
 		expect(JSON.parse(window.sessionStorage.getItem("sesion"))).toMatchObject({ correo: "admin@duoc.cl", rol: "ADMIN" });
 	});
 
@@ -77,7 +77,7 @@ describe("Login", () => {
 
 		await entrar("bodega@duoc.cl", "bodega123");
 
-		expect(screen.getByText("Productos del panel")).toBeInTheDocument();
+		expect(await screen.findByText("Productos del panel")).toBeInTheDocument();
 	});
 
 	it("el cliente vuelve al inicio de la tienda", async () => {
@@ -85,7 +85,7 @@ describe("Login", () => {
 
 		await entrar("camila@gmail.com", "cliente123");
 
-		expect(screen.getByText("Pagina de inicio")).toBeInTheDocument();
+		expect(await screen.findByText("Pagina de inicio")).toBeInTheDocument();
 	});
 
 	it("no distingue mayusculas ni espacios en el correo", async () => {
@@ -93,7 +93,7 @@ describe("Login", () => {
 
 		await entrar("  CAMILA@Gmail.com ", "cliente123");
 
-		expect(screen.getByText("Pagina de inicio")).toBeInTheDocument();
+		expect(await screen.findByText("Pagina de inicio")).toBeInTheDocument();
 	});
 
 	it("vuelve a la vista que se pidio antes de iniciar sesion", async () => {
@@ -101,7 +101,7 @@ describe("Login", () => {
 
 		await entrar("camila@gmail.com", "cliente123");
 
-		expect(screen.getByText("Pagina del carrito")).toBeInTheDocument();
+		expect(await screen.findByText("Pagina del carrito")).toBeInTheDocument();
 	});
 
 	it("ignora un destino que apunta a otro sitio", async () => {
@@ -109,7 +109,7 @@ describe("Login", () => {
 
 		await entrar("camila@gmail.com", "cliente123");
 
-		expect(screen.getByText("Pagina de inicio")).toBeInTheDocument();
+		expect(await screen.findByText("Pagina de inicio")).toBeInTheDocument();
 	});
 
 	it("ofrece crear una cuenta", () => {

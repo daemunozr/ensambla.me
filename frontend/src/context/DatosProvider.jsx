@@ -52,13 +52,13 @@ export default function DatosProvider({ children, precargado = false }) {
 	};
 
 	// Al iniciar o cerrar sesion cambian las boletas y los usuarios que se pueden ver.
+	// Solo actua cuando la cuenta cambia de verdad: al montar (y en StrictMode, que repite los efectos)
+	// no hay nada que recargar, y vaciar lo privado borraria la boleta que acaba de comprar un invitado.
 	const cuenta = sesion ? `${sesion.run}|${sesion.rol}` : "";
-	const primeraVez = useRef(true);
+	const cuentaAnterior = useRef(cuenta);
 	useEffect(() => {
-		if (primeraVez.current) {
-			primeraVez.current = false;
-			return undefined;
-		}
+		if (cuentaAnterior.current === cuenta) return undefined;
+		cuentaAnterior.current = cuenta;
 		let vigente = true;
 		const actualizar = async () => {
 			const actual = leerSesion();

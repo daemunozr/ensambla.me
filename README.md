@@ -561,7 +561,7 @@ Catálogo, ofertas, armado y carrito llevan la barra de categorías. El home del
 indicadores (productos, críticos, usuarios, órdenes) y accesos a cada mantenedor.
 
 **RNF-09 Calidad y pruebas** · `src/**/*.test.js(x)`, `vite.config.js`
-833 pruebas en 90 archivos (Vitest y Testing Library, junto al archivo que prueban) que cubren
+835 pruebas en 90 archivos (Vitest y Testing Library, junto al archivo que prueban) que cubren
 renderizado, props, estado y eventos, con mocks (`vi.fn`, `vi.spyOn`, `vi.mock`). `npm run coverage`
 llega al 99 % de las sentencias de `src/` (excluye `main.jsx`, `semillas.js`, `creditos.js` y `testing/`).
 
@@ -614,7 +614,7 @@ páginas recorren el camino real (servicios, adaptadores y cliente HTTP) sin red
 | Componentes (incluido `layout/`)         |       27 |     147 |
 | Páginas, panel y flujos                  |       36 |     284 |
 | Casos límite (`ramas*.test.jsx`)         |        2 |      41 |
-| **Total**                                |   **90** | **833** |
+| **Total**                                |   **90** | **835** |
 
 Todas en verde. Cobertura de `src/`: 99,4 % de sentencias, 98,0 % de ramas, 100 % de funciones y 99,9 % de
 líneas (se excluyen `main.jsx`, `semillas.js`, `creditos.js` y `testing/`). Las pruebas del backend (JUnit 5 y

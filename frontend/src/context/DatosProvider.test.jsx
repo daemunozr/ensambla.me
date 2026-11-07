@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
+import { StrictMode, useEffect } from "react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { vaciarTodo } from "../data/datos.js";
@@ -78,8 +78,9 @@ describe("DatosProvider (con los datos ya cargados)", () => {
 });
 
 /** Monta los proveedores reales, sin datos precargados, para probar la carga desde la API. */
-function montarSinPrecarga({ sesion = null } = {}) {
+function montarSinPrecarga({ sesion = null, estricto = false, boleta = null } = {}) {
 	vaciarTodo();
+	if (boleta) window.sessionStorage.setItem("ultimaBoleta", JSON.stringify(boleta));
 	if (sesion) window.sessionStorage.setItem("sesion", JSON.stringify(sesion));
 	const lectura = {};
 	function Lector() {
@@ -92,15 +93,16 @@ function montarSinPrecarga({ sesion = null } = {}) {
 		});
 		return <p data-testid="listo">{datos.productos.length}</p>;
 	}
-	render(
+	const arbol = (
 		<MemoryRouter>
 			<SesionProvider>
 				<DatosProvider>
 					<Lector />
 				</DatosProvider>
 			</SesionProvider>
-		</MemoryRouter>,
+		</MemoryRouter>
 	);
+	render(estricto ? <StrictMode>{arbol}</StrictMode> : arbol);
 	return lectura;
 }
 
@@ -176,6 +178,23 @@ describe("DatosProvider (carga desde la API)", () => {
 		});
 
 		await waitFor(() => expect(lectura.datos.ordenes.length).toBeGreaterThan(0));
+	});
+
+	it("recargar la pagina no borra la boleta que acaba de comprar un invitado (tampoco en StrictMode)", async () => {
+		montarSinPrecarga({ estricto: true, boleta: { orden: { numero: "ORD-2026-0009" }, items: [] } });
+		await screen.findByTestId("listo");
+
+		expect(window.sessionStorage.getItem("ultimaBoleta")).toContain("ORD-2026-0009");
+	});
+
+	it("cerrar sesion si borra la boleta guardada", async () => {
+		const lectura = montarSinPrecarga({ sesion: SESION_ADMIN });
+		await screen.findByTestId("listo");
+		window.sessionStorage.setItem("ultimaBoleta", JSON.stringify({ orden: { numero: "ORD-2026-0009" }, items: [] }));
+
+		act(() => lectura.sesion.cerrar());
+
+		await waitFor(() => expect(window.sessionStorage.getItem("ultimaBoleta")).toBeNull());
 	});
 
 	it("si la API no responde avisa y permite reintentar", async () => {
