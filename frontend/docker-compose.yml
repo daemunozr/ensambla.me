@@ -1,0 +1,18 @@
+# Frontend React + Vite compilado y servido con nginx.
+# Usa el puerto 5173 del host porque es el origen que el backend autoriza por CORS.
+#
+#   docker compose up -d --build    construye la imagen y levanta la app (http://localhost:5173)
+#   docker compose down             la detiene
+services:
+  frontend:
+    build: .
+    container_name: ensamblame-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    networks:
+      - ensamblame-net
+
+networks:
+  ensamblame-net:
+    external: true

@@ -1,31 +1,25 @@
-# MariaDB para desarrollo. Las credenciales son de desarrollo y coinciden con
-# los valores por defecto de src/main/resources/application.yml.
+# API REST (Spring Boot). Se conecta a la MariaDB de ../database, que debe estar
+# levantada antes: comparten la red ensamblame-net.
 #
-#   docker compose up -d      levanta la base
-#   docker compose down       la detiene (los datos quedan en el volumen)
-#   docker compose down -v    la detiene y borra los datos
+#   docker compose up -d --build    construye la imagen y levanta la API (http://localhost:8080)
+#   docker compose down             la detiene
 services:
-  mariadb:
-    image: mariadb:11.8
-    container_name: ensamblame-mariadb
+  backend:
+    build: .
+    container_name: ensamblame-backend
     restart: unless-stopped
     environment:
-      MARIADB_ROOT_PASSWORD: root_dev
-      MARIADB_DATABASE: ensamblame
-      MARIADB_USER: ensamblame
-      MARIADB_PASSWORD: ensamblame_dev
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_NAME: ensamblame
+      DB_USER: ensamblame
+      DB_PASSWORD: ensamblame_dev
+      APP_CORS_ORIGEN: http://localhost:5173
     ports:
-      - "3306:3306"
-    volumes:
-      - mariadb_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "8080:8080"
+    networks:
+      - ensamblame-net
 
-volumes:
-  mariadb_data:
+networks:
+  ensamblame-net:
+    external: true
