@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router";
-import { SESION_ADMIN, SESION_CLIENTE, limpiarAlmacenamiento, renderConProviders } from "../../testUtils.jsx";
+import { SESION_ADMIN, SESION_CLIENTE, SESION_LOGISTICA, limpiarAlmacenamiento, renderConProviders } from "../../testUtils.jsx";
 import Header from "./Header.jsx";
 
 function montar(sesion) {
@@ -42,6 +42,15 @@ describe("Header", () => {
 		montar(SESION_ADMIN);
 
 		expect(screen.getByRole("link", { name: "Panel de administracion" })).toHaveAttribute("href", "/admin");
+		expect(screen.getByRole("link", { name: "Mis compras" })).toBeInTheDocument();
+	});
+
+	it("Logistica ve su panel pero no «Mis compras», que no es parte de su rol", () => {
+		montar(SESION_LOGISTICA);
+
+		expect(screen.getByRole("link", { name: "Panel de administracion" })).toHaveAttribute("href", "/admin/productos");
+		expect(screen.getByRole("link", { name: "Mi perfil" })).toBeInTheDocument();
+		expect(screen.queryByRole("link", { name: "Mis compras" })).not.toBeInTheDocument();
 	});
 
 	it("cerrar sesion borra la sesion y lleva a la tienda publica", async () => {

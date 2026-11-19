@@ -145,7 +145,7 @@ cargados de la API al abrir la app y al iniciar o cerrar sesión, y los vuelve a
 |-------------------------|-------------------------------------------------------------------------------------------------------------------------|
 | Cliente                 | Tienda pública, compra con o sin sesión, `/perfil` y `/mis-compras`                                                     |
 | Administrador           | Lo anterior y el panel completo: Resumen, Productos, Críticos, Categorías, Usuarios, Órdenes, Reportes y Mi perfil      |
-| Administrador logístico | Productos (solo lectura), Críticos, Órdenes (solo lectura) y Mi perfil. El resto del menú no existe en el DOM           |
+| Administrador logístico | Productos (solo lectura), Críticos, Órdenes (solo lectura) y Mi perfil. El resto del menú no existe en el DOM, y «Mis compras» tampoco aparece en el encabezado (la ruta le muestra «Acceso denegado») |
 
 `RutaProtegida roles={[…]}`: sin sesión redirige a `/login?destino=…`; con un rol no autorizado
 muestra «Acceso denegado» y no renderiza la vista. Tras iniciar sesión, el Administrador llega a
@@ -512,7 +512,8 @@ avisa. `/productos?categoria=…` titula la lista; un código inexistente se ign
 3. Administrador y logístico lo ven en `/admin/perfil`.
 
 **RF-24 Historial de compras** · Cliente · `pages/MisCompras.jsx`, `pages/MiCompra.jsx`, `components/TablaOrdenes.jsx`
-`/mis-compras` exige sesión y lista las compras (número, fecha, productos, total), con cantidad y
+`/mis-compras` exige sesión de Cliente o Administrador (`context/sesion.js: ROLES_CON_COMPRAS`; Logística
+recibe «Acceso denegado» y no ve el enlace) y lista las compras (número, fecha, productos, total), con cantidad y
 gasto total; sin compras enlaza al catálogo. `/mis-compras/:numero` muestra la boleta propia; la de
 otra cuenta o de un invitado da «Orden no encontrada».
 
@@ -542,7 +543,8 @@ vez al abrir la app y cambiar de vista no recarga la página.
 **RNF-02 Seguridad** · `components/RutaProtegida.jsx`, `utils/validaciones.js`
 1. Una URL de admin sin sesión lleva al login; con rol Cliente o tras el logout se deniega. El
    logístico ve en el menú solo Productos, Críticos, Órdenes y Mi perfil (las demás opciones no
-   existen en el DOM) y si abre por URL un formulario de crear o editar se deniega sin renderizarlo.
+   existen en el DOM, y el encabezado no le muestra «Mis compras») y si abre por URL un formulario de
+   crear o editar, o `/mis-compras`, se deniega sin renderizarlo.
    La API vuelve a comprobar el rol del token en cada ruta (401 o 403, sección 12.5).
 2. Las contraseñas y el código de la tarjeta usan `type="password"`; un valor inválido da error antes
    de enviar, y RUN, correo y contraseña muestran sugerencia de formato.
@@ -617,6 +619,11 @@ Evaluación 3:
 - La boleta de un invitado solo se ve justo después de comprar, en la misma pestaña: la API no la entrega
   sin sesión.
 - El rol «Vendedor» del enunciado es `LOGISTICA` («Administrador logístico») en la API y en la interfaz.
+  El enunciado le da la lista y el detalle de productos y de órdenes, y pide que los demás accesos no
+  aparezcan. Logística ve además dos opciones: «Críticos», que es la misma lista de productos filtrada por
+  stock (RF-26), y «Mi perfil», para editar su propia cuenta (RF-23). El detalle de un producto es su
+  ficha de la tienda, enlazada desde el listado del panel. No ve «Mis compras» (ni el enlace ni la ruta):
+  un historial de compras propio no es parte de su rol.
 - Región y comuna se guardan como códigos de texto (`RM`, `RM-02`), sin tablas propias. La compatibilidad
   del asistente y los blogs siguen en `src/data/semillas.js`.
 - La tienda usa el catálogo que carga el backend (`CargaInicial`: 9 categorías y un producto por categoría),

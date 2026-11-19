@@ -1,6 +1,6 @@
 import { startTransition } from "react";
 import { Link, useNavigate } from "react-router";
-import { inicioDeRol, useSesion } from "../../context/sesion.js";
+import { inicioDeRol, tieneMisCompras, useSesion } from "../../context/sesion.js";
 import { nombreRol } from "../../data/datos.js";
 
 /** Barra superior de utilidad: contacto y acciones de sesion (RF-13, RNF-08). */
@@ -33,7 +33,7 @@ export default function Header() {
 								Hola, {sesion.nombre} ({nombreRol(sesion.rol)})
 							</span>
 							<Link to="/perfil">Mi perfil</Link>
-							<Link to="/mis-compras">Mis compras</Link>
+							{tieneMisCompras(sesion) && <Link to="/mis-compras">Mis compras</Link>}
 							{sesion.rol !== "CLIENTE" && <Link to={inicioDeRol(sesion.rol)}>Panel de administracion</Link>}
 							<button type="button" className="btn btn-sm btn-outline-light" onClick={cerrarSesion}>
 								Cerrar sesion

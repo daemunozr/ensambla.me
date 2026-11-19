@@ -1,6 +1,8 @@
 import { screen } from "@testing-library/react";
 import { Route, Routes } from "react-router";
 import { usuario } from "../data/datos.js";
+import { ordenes as ordenesSemilla } from "../data/semillas.js";
+import { guardarDatos } from "../testing/apiFalsa.js";
 import { limpiarAlmacenamiento, renderConProviders, sesionDe } from "../testUtils.jsx";
 import PagoCorrecto from "./PagoCorrecto.jsx";
 
@@ -38,6 +40,15 @@ describe("PagoCorrecto", () => {
 	it("el personal ve la orden de un invitado, sin «Ver mis compras»", () => {
 		// ORD-2026-0007 es de un invitado ("cliente" vacio): nadie es su dueno.
 		montar("ORD-2026-0007", sesionDe(usuario("190110222")));
+
+		expect(screen.getByRole("heading", { level: 1, name: "Pago correcto" })).toBeInTheDocument();
+		expect(screen.queryByRole("link", { name: "Ver mis compras" })).not.toBeInTheDocument();
+	});
+
+	it("Logistica ve su propia compra sin «Ver mis compras», que no es parte de su rol", () => {
+		// Jorge (152345674) es de Logistica; se le asigna una orden de la semilla.
+		guardarDatos("ordenes", ordenesSemilla.map((o) => (o.numero === "ORD-2026-0001" ? { ...o, cliente: "152345674" } : o)));
+		montar("ORD-2026-0001", sesionDe(usuario("152345674")));
 
 		expect(screen.getByRole("heading", { level: 1, name: "Pago correcto" })).toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: "Ver mis compras" })).not.toBeInTheDocument();

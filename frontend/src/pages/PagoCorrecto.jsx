@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router";
 import Alerta from "../components/Alerta.jsx";
 import Boleta from "../components/Boleta.jsx";
 import EstadoVacio from "../components/EstadoVacio.jsx";
-import { useSesion } from "../context/sesion.js";
+import { tieneMisCompras, useSesion } from "../context/sesion.js";
 import { itemsDeOrden, orden as buscarOrden } from "../data/datos.js";
 import { useTitulo } from "../hooks/useTitulo.js";
 import { puedeVerOrden } from "../logic/ordenes.js";
@@ -47,7 +47,7 @@ export default function PagoCorrecto() {
 				<Link className="btn btn-primary" to="/productos">
 					Seguir comprando
 				</Link>
-				{sesion && orden.cliente === sesion.run && (
+				{tieneMisCompras(sesion) && orden.cliente === sesion.run && (
 					<Link className="btn btn-outline-primary" to="/mis-compras">
 						Ver mis compras
 					</Link>

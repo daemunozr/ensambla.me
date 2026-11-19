@@ -53,6 +53,14 @@ export function inicioDeRol(rol) {
 }
 
 /**
+ * Roles con historial de compras propio (RF-24). Logistica (el Vendedor del
+ * enunciado) solo ve productos y ordenes: los demas accesos no aparecen.
+ */
+export const ROLES_CON_COMPRAS = ["ADMIN", "CLIENTE"];
+
+export const tieneMisCompras = (sesion) => Boolean(sesion) && ROLES_CON_COMPRAS.includes(sesion.rol);
+
+/**
  * Solo se respeta un destino que sea una ruta de este mismo sitio. Se resuelve
  * como lo haria el navegador: "/\otro.com" o "/<tab>/otro.com" parecen rutas,
  * pero el navegador los convierte en "//otro.com" y lleva a otro sitio.

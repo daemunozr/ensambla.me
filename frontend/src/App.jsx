@@ -4,6 +4,7 @@ import { LayoutAdmin, LayoutTienda } from "./components/layout/Layouts.jsx";
 import CarritoProvider from "./context/CarritoProvider.jsx";
 import DatosProvider from "./context/DatosProvider.jsx";
 import SesionProvider from "./context/SesionProvider.jsx";
+import { ROLES_CON_COMPRAS } from "./context/sesion.js";
 import Armado from "./pages/Armado.jsx";
 import Blog from "./pages/Blog.jsx";
 import Blogs from "./pages/Blogs.jsx";
@@ -67,8 +68,8 @@ export default function App() {
 							<Route path="pago/correcto/:numero" element={<PagoCorrecto />} />
 							<Route path="pago/error" element={<PagoError />} />
 							<Route path="perfil" element={protegida(CON_SESION, <Perfil />)} />
-							<Route path="mis-compras" element={protegida(CON_SESION, <MisCompras />)} />
-							<Route path="mis-compras/:numero" element={protegida(CON_SESION, <MiCompra />)} />
+							<Route path="mis-compras" element={protegida(ROLES_CON_COMPRAS, <MisCompras />)} />
+							<Route path="mis-compras/:numero" element={protegida(ROLES_CON_COMPRAS, <MiCompra />)} />
 							<Route path="blogs" element={<Blogs />} />
 							<Route path="blogs/:slug" element={<Blog />} />
 							<Route path="nosotros" element={<Nosotros />} />

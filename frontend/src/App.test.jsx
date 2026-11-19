@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import App from "./App.jsx";
+import { SESION_CLIENTE, SESION_LOGISTICA } from "./testUtils.jsx";
 
 function renderizarEn(ruta) {
 	return render(
@@ -28,5 +29,20 @@ describe("App", () => {
 
 		expect(await screen.findByRole("heading", { level: 1, name: "Pagina no encontrada" })).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "Volver al inicio" })).toHaveAttribute("href", "/");
+	});
+
+	it("Logistica no entra a «Mis compras»: no es parte de su rol", async () => {
+		window.sessionStorage.setItem("sesion", JSON.stringify(SESION_LOGISTICA));
+		renderizarEn("/mis-compras");
+
+		expect(await screen.findByRole("heading", { level: 1, name: "Acceso denegado" })).toBeInTheDocument();
+	});
+
+	it("un cliente si entra a «Mis compras»", async () => {
+		window.sessionStorage.setItem("sesion", JSON.stringify(SESION_CLIENTE));
+		renderizarEn("/mis-compras");
+
+		expect(await screen.findByRole("heading", { level: 1, name: "Mis compras" })).toBeInTheDocument();
+		expect(screen.queryByRole("heading", { name: "Acceso denegado" })).not.toBeInTheDocument();
 	});
 });
