@@ -112,6 +112,14 @@ describe("Login", () => {
 		expect(await screen.findByText("Pagina de inicio")).toBeInTheDocument();
 	});
 
+	it("ignora un destino con barra invertida, que el navegador lleva a otro sitio", async () => {
+		montar("/login?destino=%2F%5Cmalo.com");
+
+		await entrar("camila@gmail.com", "cliente123");
+
+		expect(await screen.findByText("Pagina de inicio")).toBeInTheDocument();
+	});
+
 	it("ofrece crear una cuenta", () => {
 		montar();
 

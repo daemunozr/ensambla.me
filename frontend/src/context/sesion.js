@@ -52,8 +52,20 @@ export function inicioDeRol(rol) {
 	return "/";
 }
 
-/** Solo se respeta un destino que sea una ruta de este mismo sitio. */
-export const destinoSeguro = (pedido) => (pedido?.startsWith("/") && !pedido.startsWith("//") ? pedido : null);
+/**
+ * Solo se respeta un destino que sea una ruta de este mismo sitio. Se resuelve
+ * como lo haria el navegador: "/\otro.com" o "/<tab>/otro.com" parecen rutas,
+ * pero el navegador los convierte en "//otro.com" y lleva a otro sitio.
+ */
+export function destinoSeguro(pedido) {
+	if (typeof pedido !== "string" || !pedido.startsWith("/")) return null;
+	try {
+		const url = new URL(pedido, window.location.origin);
+		return url.origin === window.location.origin ? url.pathname + url.search + url.hash : null;
+	} catch {
+		return null;
+	}
+}
 
 export function useSesion() {
 	const contexto = useContext(SesionContext);

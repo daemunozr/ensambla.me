@@ -546,7 +546,9 @@ vez al abrir la app y cambiar de vista no recarga la página.
    La API vuelve a comprobar el rol del token en cada ruta (401 o 403, sección 12.5).
 2. Las contraseñas y el código de la tarjeta usan `type="password"`; un valor inválido da error antes
    de enviar, y RUN, correo y contraseña muestran sugerencia de formato.
-3. Tras iniciar sesión solo se respeta un destino del mismo sitio.
+3. Tras iniciar sesión solo se respeta un destino del mismo sitio. Se resuelve como lo haría el
+   navegador (`context/sesion.js: destinoSeguro`), así que `/\otro.com` o `/<tab>/otro.com`, que parecen
+   rutas pero llevan a otro sitio, se ignoran.
 
 **RNF-03 Fiabilidad** · `context/`, `services/api.js`
 Sin errores de JS en consola. Un error de validación no impide navegar. Un `carrito` o una sesión

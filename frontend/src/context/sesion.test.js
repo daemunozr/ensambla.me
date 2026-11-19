@@ -48,6 +48,13 @@ describe("destinoSeguro", () => {
 	it("acepta una ruta del mismo sitio", () => {
 		expect(destinoSeguro("/carrito")).toBe("/carrito");
 		expect(destinoSeguro("/productos?q=ram")).toBe("/productos?q=ram");
+		expect(destinoSeguro("/productos?q=ram#filtros")).toBe("/productos?q=ram#filtros");
+	});
+
+	it("rechaza rutas que el navegador convierte en otro sitio", () => {
+		expect(destinoSeguro("/\\malo.com")).toBeNull();
+		expect(destinoSeguro("/\\/malo.com")).toBeNull();
+		expect(destinoSeguro("/\t/malo.com")).toBeNull();
 	});
 
 	it("rechaza un destino de otro sitio o sin destino", () => {
