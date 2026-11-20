@@ -40,6 +40,9 @@ public class UsuarioService {
         if (!ValidadorRun.esValido(request.run())) {
             throw new SolicitudInvalidaException("RUN invalido: revisa el digito verificador.");
         }
+        if (!traeContrasena(request)) {
+            throw new SolicitudInvalidaException("La contrasena es obligatoria.");
+        }
         String run = request.run().toUpperCase();
 
         if (usuarioRepository.existsById(run)) {
@@ -56,6 +59,7 @@ public class UsuarioService {
     /**
      * El RUN identifica al usuario y no cambia: se ignora el del cuerpo. "runSesion" es la cuenta que
      * edita: nadie puede cambiar su propio rol, para no quedarse (ni dejar al sistema) sin administrador.
+     * La contrasena es opcional: si no viene, se conserva la actual.
      */
     public UsuarioResponse actualizar(String run, UsuarioRequest request, String runSesion) {
         Usuario usuario = buscar(run);
@@ -126,12 +130,19 @@ public class UsuarioService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("No existe el usuario " + run + "."));
     }
 
-    // Pasa los datos del request a la entidad (todo menos el RUN). La contrasena se cifra.
+    // Al crear es obligatoria; al editar, sin contrasena se conserva la que ya tiene.
+    private static boolean traeContrasena(UsuarioRequest request) {
+        return request.contrasena() != null && !request.contrasena().isBlank();
+    }
+
+    // Pasa los datos del request a la entidad (todo menos el RUN). La contrasena, si viene, se cifra.
     private void copiarDatos(Usuario usuario, UsuarioRequest request) {
         usuario.setNombre(request.nombre());
         usuario.setApellidos(request.apellidos());
         usuario.setCorreo(normalizarCorreo(request.correo()));
-        usuario.setContrasena(passwordEncoder.encode(request.contrasena()));
+        if (traeContrasena(request)) {
+            usuario.setContrasena(passwordEncoder.encode(request.contrasena()));
+        }
         usuario.setFechaNacimiento(request.fechaNacimiento());
         usuario.setRegion(request.region());
         usuario.setComuna(request.comuna());

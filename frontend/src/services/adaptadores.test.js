@@ -61,6 +61,11 @@ describe("usuarios", () => {
 		expect(usuarioParaApi(camila)).toMatchObject({ region: "RM", comuna: "RM-04", fechaNacimiento: null, tipoUsuario: "CLIENTE" });
 	});
 
+	it("hacia la API: una contrasena vacia va como null, para que la API conserve la actual", () => {
+		expect(usuarioParaApi({ ...camila, contrasena: "" }).contrasena).toBeNull();
+		expect(usuarioParaApi({ ...camila, contrasena: "nueva123" }).contrasena).toBe("nueva123");
+	});
+
 	it("hacia la API: una comuna desconocida deja la region vacia", () => {
 		expect(usuarioParaApi({ ...camila, comuna: "XX-99" }).region).toBe("");
 	});

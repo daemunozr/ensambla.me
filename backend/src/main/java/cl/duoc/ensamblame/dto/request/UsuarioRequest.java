@@ -35,9 +35,9 @@ public record UsuarioRequest(
         @Schema(description = "Correo (dominios duoc.cl, profesor.duoc.cl o gmail.com)", example = "valentina@gmail.com")
         String correo,
 
-        @NotBlank(message = "La contrasena es obligatoria.")
+        // Obligatoria al crear (lo comprueba UsuarioService); al editar, si no viene se conserva la actual.
         @Size(min = 4, max = 10, message = "La contrasena debe tener entre 4 y 10 caracteres.")
-        @Schema(description = "Contrasena de 4 a 10 caracteres", example = "clave1234")
+        @Schema(description = "Contrasena de 4 a 10 caracteres. Obligatoria al crear; al editar, si se omite o va null se conserva la actual", example = "clave1234")
         String contrasena,
 
         @Past(message = "La fecha de nacimiento debe ser pasada.")

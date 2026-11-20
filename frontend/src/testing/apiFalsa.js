@@ -294,6 +294,8 @@ function atender(metodo, ruta, cuerpo, yo) {
 			return existente ? respuesta(200, usuarioApi(existente)) : error(404, `No existe el usuario ${id}.`);
 		}
 		if (metodo === "POST") {
+			// Al crear la contrasena es obligatoria; al editar, sin ella se conserva la actual (usuarioDesde).
+			if (!cuerpo.contrasena?.trim()) return error(400, "La contrasena es obligatoria.");
 			const run = cuerpo.run.toUpperCase();
 			if (bd.usuarios.some((u) => u.run === run)) return error(409, `Ya existe un usuario con el RUN ${run}.`);
 			if (!correoLibre(cuerpo.correo)) return error(409, `Ya existe un usuario con el correo ${cuerpo.correo}.`);

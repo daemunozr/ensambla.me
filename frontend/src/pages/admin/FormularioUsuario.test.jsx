@@ -2,6 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router";
 import { usuario, usuarios } from "../../data/datos.js";
+import { baseDeDatos } from "../../testing/apiFalsa.js";
 import { limpiarAlmacenamiento, renderConProviders, sesionDe } from "../../testUtils.jsx";
 import FormularioUsuario from "./FormularioUsuario.jsx";
 
@@ -142,12 +143,28 @@ describe("admin / FormularioUsuario", () => {
 			const nombre = campo("Nombre");
 			await userEvent.clear(nombre);
 			await userEvent.type(nombre, "Camila Paz");
-			// La API no entrega la contrasena: al editar se escribe una nueva.
+			// La API no entrega la contrasena; si se escribe una, la reemplaza.
 			await userEvent.type(campo("Contrasena"), "nueva123");
 			await guardar();
 
 			await waitFor(() => expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/usuarios?guardado=123456785"));
 			expect(usuario("123456785")).toMatchObject({ nombre: "Camila Paz", tipoUsuario: "LOGISTICA" });
+			expect(baseDeDatos().usuarios.find((u) => u.run === "123456785").contrasena).toBe("nueva123");
+		});
+
+		it("sin escribir contrasena guarda los cambios y conserva la actual (RF-11 CA1)", async () => {
+			montar("/admin/usuarios/123456785/editar");
+			const antes = baseDeDatos().usuarios.find((u) => u.run === "123456785").contrasena;
+
+			expect(campo("Contrasena")).not.toBeRequired();
+			const direccion = campo("Direccion");
+			await userEvent.clear(direccion);
+			await userEvent.type(direccion, "Av. Grecia 100");
+			await guardar();
+
+			await waitFor(() => expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/usuarios?guardado=123456785"));
+			expect(usuario("123456785").direccion).toBe("Av. Grecia 100");
+			expect(baseDeDatos().usuarios.find((u) => u.run === "123456785").contrasena).toBe(antes);
 		});
 
 		it("un correo de otro usuario se rechaza al editar", async () => {

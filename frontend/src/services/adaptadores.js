@@ -53,7 +53,8 @@ export const usuarioParaApi = (u) => ({
 	nombre: u.nombre,
 	apellidos: u.apellidos,
 	correo: correoParaApi(u.correo),
-	contrasena: u.contrasena,
+	// Al editar desde el panel puede ir vacia: la API conserva la actual.
+	contrasena: textoONulo(u.contrasena),
 	fechaNacimiento: textoONulo(u.fechaNacimiento),
 	region: u.region || regionDe(u.comuna),
 	comuna: u.comuna,

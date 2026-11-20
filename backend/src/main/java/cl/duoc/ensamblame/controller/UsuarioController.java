@@ -74,7 +74,7 @@ public class UsuarioController {
     }
 
     @Operation(summary = "Crea un usuario",
-            description = "Requiere rol ADMIN. A diferencia del registro publico, aqui se elige el rol.")
+            description = "Requiere rol ADMIN. A diferencia del registro publico, aqui se elige el rol. La contrasena es obligatoria.")
     @ApiResponse(responseCode = "201", description = "Usuario creado")
     @ApiResponse(responseCode = "400", description = "Datos invalidos")
     @ApiResponse(responseCode = "409", description = "El RUN o el correo ya existen")
@@ -84,7 +84,7 @@ public class UsuarioController {
     }
 
     @Operation(summary = "Edita un usuario",
-            description = "Requiere rol ADMIN. El RUN no cambia: manda el de la ruta. Nadie puede cambiar el rol de su propia cuenta.")
+            description = "Requiere rol ADMIN. El RUN no cambia: manda el de la ruta. La contrasena es opcional: si no viene, se conserva la actual. Nadie puede cambiar el rol de su propia cuenta.")
     @ApiResponse(responseCode = "200", description = "Usuario actualizado")
     @ApiResponse(responseCode = "400", description = "Datos invalidos")
     @ApiResponse(responseCode = "404", description = "No existe el usuario")

@@ -50,7 +50,11 @@ class UsuarioServiceTest {
     }
 
     private UsuarioRequest request(String run, String correo) {
-        return new UsuarioRequest(run, "Camila", "Soto Vera", correo, "cliente123", null, "RM", "RM-04",
+        return request(run, correo, "cliente123");
+    }
+
+    private UsuarioRequest request(String run, String correo, String contrasena) {
+        return new UsuarioRequest(run, "Camila", "Soto Vera", correo, contrasena, null, "RM", "RM-04",
                 "Irarrazaval 2550, Nunoa", TipoUsuario.CLIENTE);
     }
 
@@ -92,6 +96,14 @@ class UsuarioServiceTest {
     }
 
     @Test
+    void crearSinContrasenaLanzaSolicitudInvalida() {
+        assertThrows(SolicitudInvalidaException.class, () -> servicio.crear(request("123456785", "camila@gmail.com", null)));
+        assertThrows(SolicitudInvalidaException.class, () -> servicio.crear(request("123456785", "camila@gmail.com", " ")));
+
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
     void crearConUnRunRepetidoLanzaConflicto() {
         when(usuarioRepository.existsById("123456785")).thenReturn(true);
 
@@ -125,6 +137,38 @@ class UsuarioServiceTest {
         UsuarioResponse respuesta = servicio.actualizar("123456785", request("123456785", "camila@gmail.com"), ADMIN);
 
         assertEquals("camila@gmail.com", respuesta.correo());
+    }
+
+    @Test
+    void actualizarSinContrasenaConservaLaActual() {
+        Usuario existente = new Usuario();
+        existente.setRun("123456785");
+        existente.setContrasena("hash-actual");
+        existente.setTipoUsuario(TipoUsuario.CLIENTE);
+        when(usuarioRepository.findById("123456785")).thenReturn(Optional.of(existente));
+        when(usuarioRepository.findByCorreo("camila@gmail.com")).thenReturn(Optional.of(existente));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(llamada -> llamada.getArgument(0));
+
+        servicio.actualizar("123456785", request("123456785", "camila@gmail.com", null), ADMIN);
+
+        assertEquals("hash-actual", existente.getContrasena());
+        verify(passwordEncoder, never()).encode(any());
+    }
+
+    @Test
+    void actualizarConContrasenaNuevaLaCifra() {
+        Usuario existente = new Usuario();
+        existente.setRun("123456785");
+        existente.setContrasena("hash-actual");
+        existente.setTipoUsuario(TipoUsuario.CLIENTE);
+        when(usuarioRepository.findById("123456785")).thenReturn(Optional.of(existente));
+        when(usuarioRepository.findByCorreo("camila@gmail.com")).thenReturn(Optional.of(existente));
+        when(passwordEncoder.encode("nueva123")).thenReturn("hash-nuevo");
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(llamada -> llamada.getArgument(0));
+
+        servicio.actualizar("123456785", request("123456785", "camila@gmail.com", "nueva123"), ADMIN);
+
+        assertEquals("hash-nuevo", existente.getContrasena());
     }
 
     @Test

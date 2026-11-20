@@ -37,11 +37,14 @@ const DEFINICION = {
 	direccion: [reglas.requerido(), reglas.maximo(300)],
 };
 
+// Al editar, la contrasena es opcional: vacia conserva la actual.
+const DEFINICION_EDICION = { ...DEFINICION, contrasena: [reglas.contrasena()] };
+
 /** Valores del formulario a partir de un usuario existente; la region sale de su comuna. */
 const valoresDe = (existente) => ({
 	...VACIO,
 	...existente,
-	// La API nunca entrega la contrasena: al editar se escribe una nueva.
+	// La API nunca entrega la contrasena: el campo parte vacio y, si queda asi, no se cambia.
 	contrasena: "",
 	fechaNacimiento: existente.fechaNacimiento ?? "",
 	region: comuna(existente.comuna)?.region ?? "",
@@ -54,7 +57,10 @@ function Formulario({ run }) {
 	const existente = run ? buscarUsuario(run) : null;
 	// Nadie cambia el rol de su propia cuenta: podria quedarse (y dejar al sistema) sin administrador.
 	const esPropia = Boolean(existente) && existente.run === sesion?.run;
-	const formulario = useFormulario(existente ? valoresDe(existente) : VACIO, DEFINICION);
+	const formulario = useFormulario(
+		existente ? valoresDe(existente) : VACIO,
+		existente ? DEFINICION_EDICION : DEFINICION,
+	);
 	const { registrar, estado, errores, enviar } = formulario;
 	const [aviso, setAviso] = useState(
 		run && !existente ? { tipo: "danger", contenido: `No existe un usuario con RUN ${run}.` } : null,
@@ -142,11 +148,15 @@ function Formulario({ run }) {
 							className="col-12 col-md-6"
 							id="usuario-contrasena"
 							etiqueta="Contrasena"
-							obligatorio
+							obligatorio={!existente}
 							type="password"
 							maxLength={10}
 							autoComplete="new-password"
-							sugerencia={existente ? "Escribe la contrasena nueva (4 a 10 caracteres); la actual no se puede ver." : "Entre 4 y 10 caracteres."}
+							sugerencia={
+								existente
+									? "Dejala vacia para conservar la actual, o escribe una nueva (4 a 10 caracteres)."
+									: "Entre 4 y 10 caracteres."
+							}
 							{...props("contrasena")}
 						/>
 						{/* Exactamente los tres roles; este campo no existe en el registro publico (RF-11 CA3). */}

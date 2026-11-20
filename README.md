@@ -357,7 +357,7 @@ cada campo.
 |----------------------------------|--------------------------------------------------------------------------------------------|
 | RUN                              | Requerido, 7–9 caracteres sin puntos ni guion, DV módulo 11. Válido: `190110222`           |
 | Correo                           | Requerido, ≤ 100, dominio `@duoc.cl`, `@profesor.duoc.cl` o `@gmail.com` (con `datalist`). Sin importar mayúsculas: se envía y se guarda en minúsculas |
-| Contraseña                       | Requerida, 4–10, `type="password"`. Al cambiarla: actual, nueva y repetición; la nueva coincide y difiere de la actual |
+| Contraseña                       | Requerida, 4–10, `type="password"`. Al cambiarla: actual, nueva y repetición; la nueva coincide y difiere de la actual. Al editar un usuario desde el panel es opcional: vacía conserva la actual |
 | Nombre / apellidos               | Requeridos, ≤ 50 / ≤ 100                                                                   |
 | Región → comuna                  | Requeridas; la comuna se filtra por la región                                              |
 | Dirección                        | Requerida, ≤ 300                                                                           |
@@ -438,6 +438,7 @@ Listado con imagen, título y descripción corta; detalle con descripción larga
 
 **RF-11 Mantenedor de Usuarios** · Administrador · `pages/admin/Usuarios.jsx`, `pages/admin/Usuario.jsx`, `pages/admin/FormularioUsuario.jsx`
 1. Buscar, crear, editar y eliminar, con las validaciones de RF-01; RUN o correo repetidos se rechazan.
+   Al editar, la contraseña es opcional: si queda vacía se conserva la actual (la API nunca la entrega).
 2. El select de tipo ofrece Administrador, Cliente y Administrador logístico (no existe en el registro público).
    En la propia cuenta queda deshabilitado: nadie se cambia el rol a sí mismo (la API también lo rechaza).
 3. La ficha `/admin/usuarios/:run` muestra sus datos, sin contraseña, y su historial con enlace a cada boleta.
@@ -672,7 +673,7 @@ pruebas y la URL `jdbc:h2:mem`, así no se toca la base real) y `npm run dev` ap
 | Retiro en tienda | Envío gratis en la boleta |
 | Registro | RUN repetido → 409 con mensaje; cuenta nueva y login con ella |
 | Perfil | Cambiar el correo mantiene la sesión al recargar (el correo anterior da 401); contraseña actual incorrecta → error; la nueva funciona y la anterior da 401 |
-| Panel del administrador | Producto: errores por campo (400), SKU repetido (409), crear y editar. Producto con boletas → 409. Categorías: crear, editar y eliminar. Usuarios: crear y editar (al editar se exige contraseña nueva) |
+| Panel del administrador | Producto: errores por campo (400), SKU repetido (409), crear y editar. Producto con boletas → 409. Categorías: crear, editar y eliminar. Usuarios: crear y editar (al editar se exigía contraseña nueva; desde el 19-11-2026 es opcional, RF-11) |
 | Logística (`bodega@duoc.cl`) | Productos y órdenes solo en lectura, sin Usuarios en el menú |
 | Cliente en `/admin` | «Acceso denegado» |
 | Token de acceso vencido | Se renueva solo y la vista sigue funcionando |
@@ -779,7 +780,7 @@ cliente ──JSON──▶ controller ──▶ service ──▶ repository �
 | | `POST /api/v1/productos`, `PUT /api/v1/productos/{sku}` | 201 al crear, 200 al editar | Admin |
 | | `DELETE /api/v1/productos/{sku}` | 204 (409 si figura en boletas) | Admin |
 | Usuarios | `GET /api/v1/usuarios`, `GET /api/v1/usuarios/{run}` | 200 | Admin |
-| | `POST /api/v1/usuarios`, `PUT /api/v1/usuarios/{run}` | 201 al crear, 200 al editar (409 si el correo es de otra cuenta o si se cambia el rol de la propia) | Admin |
+| | `POST /api/v1/usuarios`, `PUT /api/v1/usuarios/{run}` | 201 al crear, 200 al editar (409 si el correo es de otra cuenta o si se cambia el rol de la propia). La contraseña es obligatoria al crear; al editar, si no viene se conserva la actual | Admin |
 | | `DELETE /api/v1/usuarios/{run}` | 204 (409 si tiene boletas o es la cuenta en sesión) | Admin |
 | | `GET /api/v1/usuarios/me`, `PUT /api/v1/usuarios/me` | 200 con la cuenta del token; el `PUT` edita sus datos y, con `contrasenaActual` y `contrasenaNueva`, la contraseña (400 si la actual no coincide, 409 si el correo es de otra cuenta; nunca cambia el RUN ni el rol) | Cualquier rol con sesión |
 | Boletas | `GET /api/v1/boletas` (opcional `?usuario=123456785`) | 200 | Admin y Logística (todas); Cliente (solo las suyas, ignora `?usuario=`) |
@@ -1053,7 +1054,8 @@ arranca la aplicación con H2 y comprueba que toda ruta esté documentada, con r
   en el cliente. Un invitado no puede consultar su boleta después (`GET /boletas` exige sesión), así que se muestra
   la que devolvió la compra y se guarda en `sessionStorage["ultimaBoleta"]`.
 - **Perfil**: `GET` y `PUT /usuarios/me` (datos propios y cambio de contraseña con la actual; nunca RUN ni rol).
-  Al editar un usuario como administrador hay que escribir una contraseña nueva: la API no entrega la actual.
+  Al editar un usuario como administrador, la contraseña es opcional: si el campo queda vacío viaja como `null` y
+  la API conserva la actual, que nunca entrega.
 - **Datos distintos**: la tienda ya no usa el catálogo de `semillas.js` sino el que carga `CargaInicial` del backend
   (9 productos y 9 categorías).
 
