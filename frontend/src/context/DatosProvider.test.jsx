@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { StrictMode, useEffect } from "react";
+import { StrictMode, useLayoutEffect } from "react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { vaciarTodo } from "../data/datos.js";
@@ -86,8 +86,10 @@ function montarSinPrecarga({ sesion = null, estricto = false, boleta = null } = 
 	function Lector() {
 		const datos = useDatos();
 		const sesionActual = useSesion();
-		// La prueba lee siempre lo ultimo que entrego el proveedor.
-		useEffect(() => {
+		// La prueba lee siempre lo ultimo que entrego el proveedor. Es un efecto de layout porque corre en el
+		// mismo commit, antes de que findByTestId vea el nodo: un useEffect lo programa React con setImmediate,
+		// y bajo carga el setTimeout(0) con que Testing Library cierra la espera podia llegar antes.
+		useLayoutEffect(() => {
 			lectura.datos = datos;
 			lectura.sesion = sesionActual;
 		});
