@@ -3,7 +3,7 @@
 Tienda online de componentes de PC con asistente de armado guiado por compatibilidad.
 Frontend React + Vite que consume una API REST Spring Boot con MariaDB (sección 11).
 Duoc UC · DSY1104 Desarrollo Fullstack II · Evaluación 3.
-ERS rev. 3.2 (07-11-2026), Daniel Muñoz. La versión formal IEEE 830 (`ERS - Ensambla.me.docx`) es un
+ERS rev. 3.3 (19-11-2026), Daniel Muñoz. La versión formal IEEE 830 (`ERS - Ensambla.me.docx`) es un
 entregable aparte (sección 12.1).
 
 ## Índice
@@ -206,7 +206,8 @@ Patrones: composición (`RejillaProductos` → `TarjetaProducto` → `ImagenProd
 `useSesion`) y accesibilidad con `role="alert"`, `aria-live`, `aria-invalid` y etiquetas por `id`.
 
 **Punto a mejorar:** `ResumenPedido`, `Boleta` y `TablaOrdenes` importan funciones de
-`data/datos.js` en vez de recibir los datos por props o contexto.
+`data/datos.js` en vez de recibir los datos por props o contexto. También leen de ahí `TarjetaProducto`
+(nombre de la categoría), `RutaProtegida` (nombre del rol) y `SelectRegionComuna` (regiones y comunas).
 
 ### 3.6 Hooks
 
@@ -583,7 +584,7 @@ Catálogo, ofertas, armado y carrito llevan la barra de categorías. El home del
 indicadores (productos, críticos, usuarios, órdenes) y accesos a cada mantenedor.
 
 **RNF-09 Calidad y pruebas** · `src/**/*.test.js(x)`, `vite.config.js`
-844 pruebas en 90 archivos (Vitest y Testing Library, junto al archivo que prueban) que cubren
+853 pruebas en 90 archivos (Vitest y Testing Library, junto al archivo que prueban) que cubren
 renderizado, props, estado y eventos, con mocks (`vi.fn`, `vi.spyOn`, `vi.mock`). `npm run coverage`
 llega al 99 % de las sentencias de `src/` (excluye `main.jsx`, `semillas.js`, `creditos.js` y `testing/`).
 
@@ -627,7 +628,9 @@ Evaluación 3:
   ficha de la tienda, enlazada desde el listado del panel. No ve «Mis compras» (ni el enlace ni la ruta):
   un historial de compras propio no es parte de su rol.
 - Región y comuna se guardan como códigos de texto (`RM`, `RM-02`), sin tablas propias. La compatibilidad
-  del asistente y los blogs siguen en `src/data/semillas.js`.
+  del asistente y los blogs siguen en `src/data/semillas.js`. Por eso un producto creado desde el panel no
+  tiene compatibilidad: solo aparece si su categoría es el primer paso o si se omitió el paso anterior, y si
+  se elige, el paso siguiente queda vacío y el asistente avisa que hay que volver o omitirlo.
 - La tienda usa el catálogo que carga el backend (`CargaInicial`: 9 categorías y un producto por categoría),
   no el de `semillas.js`, que queda solo para la API simulada de las pruebas.
 
@@ -650,14 +653,14 @@ páginas recorren el camino real (servicios, adaptadores y cliente HTTP) sin red
 | Grupo                                    | Archivos | Pruebas |
 |------------------------------------------|---------:|--------:|
 | Lógica y utilidades (`logic/`, `utils/`) |       13 |     223 |
-| Datos, servicios, contextos y hooks      |       12 |     147 |
-| Componentes (incluido `layout/`)         |       27 |     147 |
-| Páginas, panel y flujos                  |       36 |     286 |
+| Datos, servicios, contextos y hooks      |       12 |     149 |
+| Componentes (incluido `layout/`)         |       27 |     148 |
+| Páginas, panel y flujos                  |       36 |     292 |
 | Casos límite (`ramas*.test.jsx`)         |        2 |      41 |
-| **Total**                                |   **90** | **844** |
+| **Total**                                |   **90** | **853** |
 
-Todas en verde. Cobertura de `src/`: 99,4 % de sentencias, 98,1 % de ramas, 100 % de funciones y 99,9 % de
-líneas (se excluyen `main.jsx`, `semillas.js`, `creditos.js` y `testing/`). Las 137 pruebas del backend
+Todas en verde. Cobertura de `src/`: 99,4 % de sentencias, 98,1 % de ramas, 100 % de funciones y 99,8 % de
+líneas (se excluyen `main.jsx`, `semillas.js`, `creditos.js` y `testing/`). Las 143 pruebas del backend
 (JUnit 5 y Mockito) son aparte: `cd backend && mvn test` (sección 11.5).
 
 ### Pruebas de extremo a extremo (manuales)
@@ -682,7 +685,8 @@ pruebas y la URL `jdbc:h2:mem`, así no se toca la base real) y `npm run dev` ap
 | Docker (`:8081` → `:8080`) | La web compilada llama a la API sin errores de CORS |
 
 No se probó la tarjeta de fondos insuficientes (`4000 0000 0000 9995`), que sigue el mismo camino que la
-rechazada. Las reglas agregadas en la auditoría (sección 12.9) se comprobaron con `curl` contra la misma API.
+rechazada. Las reglas agregadas en las auditorías (secciones 12.9 y 12.10) se comprobaron con `curl` contra la misma
+API.
 
 ### Diseño responsivo
 
@@ -795,8 +799,9 @@ privada: (1) `POST /api/v1/auth/login` con una cuenta de ejemplo (el cuerpo ya v
 minutos. Cada operación indica el rol necesario y sus respuestas (400, 401, 403, 404, 409); el candado marca
 las privadas y `POST /boletas` acepta el token pero no lo exige. Los errores comparten el esquema `ErrorResponse`.
 
-Todas las rutas cuelgan de `/api/v1/`; las rutas sin versión (`/api/productos`) ya no existen y
-responden 404. El identificador (código, SKU o RUN) no cambia al editar: en `PUT` manda el de la ruta.
+Todas las rutas cuelgan de `/api/v1/`; las rutas sin versión (`/api/productos`) ya no existen: sin token
+responden 401, porque la seguridad exige sesión en toda ruta no declarada antes de llegar al 404, y con
+token responden 404. El identificador (código, SKU o RUN) no cambia al editar: en `PUT` manda el de la ruta.
 Las boletas solo se registran y se consultan: no hay `PUT` ni `DELETE`.
 
 `POST /api/v1/boletas` recibe el comprador (`nombre`, `correo`, `direccion`, `comuna`), `entrega`
@@ -821,7 +826,9 @@ el de renovación 7 días; con `POST /api/v1/auth/refresh` y `{"refreshToken": "
 tokens nuevos (el rol se lee de nuevo de la base). Son JWT firmados con HS256 que llevan el correo
 (`sub`), el RUN, el rol, el tipo (`acceso` o `renovacion`, para que uno no sirva como el otro) y la
 expiración. Un token alterado, vencido o del tipo equivocado responde 401, también en las rutas
-públicas. Con un rol sin permiso responde 403. Un error de login no distingue entre correo
+públicas. Para mostrarlo en una demo hay que cambiar un carácter del medio: si se agrega uno al final,
+jjwt descarta los bits sobrantes del base64 de la firma, que sigue siendo la misma, y el token se acepta
+(no permite falsificar nada). Con un rol sin permiso responde 403. Un error de login no distingue entre correo
 inexistente y contraseña incorrecta.
 
 Los errores tienen el formato `ErrorResponse`:
@@ -881,7 +888,7 @@ demasiado largo o un precio que no cabe en `decimal(12,2)` responde 400 y no 409
 - `JWT_SECRET` tiene un valor de desarrollo; en producción debe ser otro, de al menos 32 caracteres.
 - `ddl-auto: update` modifica las tablas solo en desarrollo; no hay migraciones.
 - Faltan la compatibilidad de componentes y los blogs del modelo completo.
-- Las 137 pruebas no usan MariaDB. La mayoría son unitarias (Mockito y MockMvc); las de
+- Las 143 pruebas no usan MariaDB. La mayoría son unitarias (Mockito y MockMvc); las de
   `SeguridadWebTest` levantan el filtro de seguridad real con tokens reales para recorrer las reglas
   de acceso por rol, y `SwaggerTest` arranca la aplicación completa con H2 en memoria (solo en pruebas,
   no entra en la imagen) para revisar la especificación OpenAPI y recorrer login → token → consulta.
@@ -908,7 +915,7 @@ apartado resume cómo se cumple cada indicador; la sección 11 describe la API e
 | IE3.1.1 Backend y base de datos | 8 % | CRUD de categorías, productos y usuarios, y boletas con detalle y compra transaccional (sección 12.3), sobre MariaDB | Nada pendiente |
 | IE3.2.1 API REST y Swagger | 8 % | Endpoints CRUD, de boletas y de auth versionados en `/api/v1/...`, documentados en Swagger UI (12.6) | Nada pendiente |
 | IE3.3.1 Autenticación JWT y roles | 6 % | Login, registro, JWT de acceso y renovación, filtro de seguridad y permisos por rol (12.5) | Nada pendiente en el backend |
-| IE3.2.2 Integración backend-frontend | 6 % | `fetch` desde React con `src/services/` para catálogo, usuarios, boletas, registro, login y compra (12.8) | Nada pendiente |
+| IE3.2.2 Integración backend-frontend | 6 % | `fetch` desde React con `src/services/` para catálogo, usuarios, boletas, registro, login y compra (12.8) | El código está completo. El indicador evalúa la justificación de la integración, que se entrega en el Documento APIs e Integración (12.1), aún pendiente |
 | IE3.3.2 Sesión en el frontend | 6 % | Tokens JWT en `sessionStorage`; recargar mantiene la sesión y el token se renueva solo (12.8) | Nada pendiente |
 | IE3.3.3 Restricciones en el frontend | 6 % | `RutaProtegida` según el rol de la sesión (el del token) y la API vuelve a comprobarlo (12.8) | Nada pendiente |
 
@@ -1029,7 +1036,8 @@ vencimiento, firma alterada, renovación), del login y del registro (también co
 de las reglas de cada mantenedor (`ProductoServiceTest`, `CategoriaServiceTest`, `UsuarioServiceTest`, con
 la propia cuenta y el paso del asistente), de cada error (`ResponseEntityHandlerTest`) y de acceso por rol: `SeguridadWebTest`
 recorre las rutas con el filtro de seguridad real y comprueba 200, 401 y 403 según el rol; `SwaggerTest`
-arranca la aplicación con H2 y comprueba que toda ruta esté documentada, con resumen, seguridad y errores.
+arranca la aplicación con H2 y comprueba que toda ruta esté documentada, con resumen, seguridad y errores, y
+que la configuración real de Jackson rechace un entero con decimales.
 
 1. ~~Entidades y repositorios de `Boleta` y `DetalleBoleta`.~~ Hecho.
 2. ~~Servicio de compra y endpoints de boletas.~~ Hecho, con sus pruebas.
@@ -1038,7 +1046,7 @@ arranca la aplicación con H2 y comprueba que toda ruta esté documentada, con r
 5. ~~Swagger.~~ Hecho.
 6. ~~Pruebas.~~ Hechas.
 7. ~~Integración del frontend con la API.~~ Hecha (12.8), con `PUT /usuarios/me` para el perfil.
-8. ~~Auditoría del código y del README.~~ Hecha (12.9).
+8. ~~Auditoría del código y del README.~~ Hecha (12.9), y una segunda contra el enunciado y la rúbrica (12.10).
 9. Documentos de la sección 12.1.
 
 ### 12.8 Integración del frontend con la API
