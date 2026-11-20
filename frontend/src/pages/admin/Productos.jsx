@@ -160,7 +160,7 @@ export default function Productos() {
 			>
 				<p>
 					Se eliminara <strong>{eliminacion.pendiente?.nombre}</strong> ({eliminacion.pendiente?.sku}) del
-					catalogo. Las ordenes que lo incluyen conservan su detalle.
+					catalogo. Si figura en alguna orden no se puede eliminar, porque la boleta necesita su detalle.
 				</p>
 				<p className="mb-0">Esta accion no se puede deshacer.</p>
 			</ModalConfirmacion>

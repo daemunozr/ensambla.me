@@ -88,6 +88,8 @@ describe("admin / Productos", () => {
 
 			const dialogo = screen.getByRole("dialog", { name: "Eliminar producto" });
 			expect(dialogo).toHaveTextContent("AMD Ryzen 5 7600");
+			// Un producto con ordenes no se elimina (RF-10 CA4): el aviso no debe prometer lo contrario.
+			expect(dialogo).toHaveTextContent("Si figura en alguna orden no se puede eliminar");
 			expect(producto("CPU-R5-7600")).toBeDefined();
 		});
 
