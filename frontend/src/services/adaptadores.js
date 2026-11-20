@@ -38,7 +38,8 @@ export const productoParaApi = (p) => ({
 });
 
 /* ================================================================== Categorias */
-export const categoriaParaApi = (c) => ({ codigo: c.codigo, nombre: c.nombre, orden: numeroONulo(c.orden) });
+// El paso del asistente ("orden") no se envia: la API no lo recibe, lo fija su carga inicial.
+export const categoriaParaApi = (c) => ({ codigo: c.codigo, nombre: c.nombre });
 
 /* =================================================================== Usuarios */
 export function usuarioDeApi(u) {

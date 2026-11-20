@@ -27,7 +27,12 @@ const DEFINICION = {
 	sku: [reglas.requerido(), reglas.minimo(3)],
 	nombre: [reglas.requerido(), reglas.maximo(100)],
 	descripcion: [reglas.maximo(500)],
-	precio: [reglas.requerido(), reglas.numeroMinimo(0)],
+	// Lo mismo que acepta la API: lo que cabe en una columna decimal(12,2).
+	precio: [
+		reglas.requerido(),
+		reglas.numeroMinimo(0),
+		reglas.patron(/^\d{1,10}(\.\d{1,2})?$/, "Hasta 10 digitos enteros y 2 decimales."),
+	],
 	descuento: [reglas.numeroMinimo(0), reglas.numeroMaximo(MAXIMO_DESCUENTO), reglas.entero()],
 	stock: [reglas.requerido(), reglas.numeroMinimo(0), reglas.entero()],
 	stockCritico: [reglas.numeroMinimo(0), reglas.entero()],
@@ -128,7 +133,7 @@ function Formulario({ sku }) {
 							min="0"
 							step="0.01"
 							autoComplete="off"
-							sugerencia="Pesos chilenos, admite decimales. Un precio 0 es un producto gratuito."
+							sugerencia="Pesos chilenos, con hasta 2 decimales. Un precio 0 es un producto gratuito."
 							{...props("precio")}
 						/>
 						<Campo

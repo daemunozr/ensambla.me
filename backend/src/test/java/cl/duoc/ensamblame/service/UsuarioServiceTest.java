@@ -303,6 +303,19 @@ class UsuarioServiceTest {
     }
 
     @Test
+    void laContrasenaNuevaDebeSerDistintaDeLaActual() {
+        when(usuarioRepository.findById("123456785")).thenReturn(Optional.of(cuenta()));
+        when(usuarioRepository.findByCorreo("camila@gmail.com")).thenReturn(Optional.empty());
+        when(passwordEncoder.matches("cliente123", "hash-actual")).thenReturn(true);
+
+        SolicitudInvalidaException error = assertThrows(SolicitudInvalidaException.class,
+                () -> servicio.actualizarPerfil("123456785", perfil("camila@gmail.com", "cliente123", "cliente123")));
+        assertEquals("La contrasena nueva debe ser distinta de la actual.", error.getMessage());
+        verify(passwordEncoder, never()).encode(any());
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
     void conLaContrasenaActualCorrectaSeGuardaLaNuevaCifrada() {
         Usuario u = cuenta();
         when(usuarioRepository.findById("123456785")).thenReturn(Optional.of(u));

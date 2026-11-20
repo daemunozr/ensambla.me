@@ -365,7 +365,7 @@ cada campo.
 | Contacto: nombre / comentario    | Requeridos, ≤ 100 / ≤ 500                                                                  |
 | SKU                              | Requerido, ≥ 3, único                                                                      |
 | Nombre / descripción de producto | Requerido ≤ 100 / opcional ≤ 500                                                           |
-| Precio                           | Requerido, ≥ 0, admite decimales; 0 = gratis                                               |
+| Precio                           | Requerido, ≥ 0, hasta 10 dígitos enteros y 2 decimales; 0 = gratis                         |
 | Descuento                        | Opcional, entero 0–90; vacío o 0 = sin oferta                                              |
 | Stock / stock crítico            | Requerido / opcional; enteros ≥ 0                                                          |
 | Categoría de producto            | Requerida (select). Imagen y video: opcionales (ruta o URL)                                |
@@ -431,7 +431,7 @@ Listado con imagen, título y descripción corta; detalle con descripción larga
 **RF-10 Mantenedor de Productos** · Administrador · `pages/admin/Productos.jsx`, `pages/admin/FormularioProducto.jsx`
 1. Listado con crear, editar, eliminar y búsqueda por código, nombre o categoría.
 2. Se rechazan SKU < 3 caracteres o repetido, precio < 0, descuento fuera de 0–90 o decimal, stock
-   negativo o decimal, y producto sin categoría. El precio admite decimales y 0.
+   negativo o decimal, y producto sin categoría. El precio admite 0 y hasta 2 decimales (10 dígitos enteros).
 3. Si `stock` ≤ `stockCritico`, el listado alerta. El `video` vacío no bloquea el guardado.
 4. Eliminar pide confirmación. Un producto que figura en alguna orden no se elimina (la API responde 409),
    así la boleta conserva su detalle; si se elimina uno sin órdenes, el carrito descarta su línea.
@@ -521,7 +521,8 @@ otra cuenta o de un invitado da «Orden no encontrada».
 **RF-25 Mantenedor de Categorías** · Administrador · `pages/admin/Categorias.jsx`, `pages/admin/FormularioCategoria.jsx`
 1. Listado con código, nombre, paso del asistente y número de productos; crear, editar y eliminar.
 2. Código único de 3–30 (minúsculas, números, guiones) que no cambia al editar; nombre ≤ 50.
-3. Las nuevas aparecen en catálogo, filtros y ficha, pero no en el asistente.
+3. Las nuevas aparecen en catálogo, filtros y ficha, pero no en el asistente. La API tampoco recibe el paso
+   del asistente (`orden`): una nueva no tiene y una editada conserva el suyo.
 4. Eliminar pide confirmación y se rechaza si es un paso del asistente o tiene productos (la interfaz
    avisa sin llamar a la API, y la API también lo comprueba: 409).
 
@@ -856,9 +857,17 @@ curl -X POST http://localhost:8080/api/v1/productos -H "Content-Type: applicatio
 ### 11.5 Validación y simplificaciones
 
 Las reglas son las del frontend (sección 5): categoría con código de 3–30 (minúsculas, números,
-guiones); producto con SKU ≥ 3, precio ≥ 0, descuento 0–90, stock ≥ 0, e imagen y video de hasta 255
-caracteres; usuario con RUN válido, correo de `duoc.cl`, `profesor.duoc.cl` o `gmail.com` y contraseña de 4–10.
-Cada límite coincide con el largo de su columna, así un valor demasiado largo responde 400 y no 500.
+guiones); producto con SKU ≥ 3, precio ≥ 0 de hasta 10 dígitos enteros y 2 decimales, descuento 0–90,
+stock ≥ 0, e imagen y video de hasta 255 caracteres; usuario con RUN válido, correo de `duoc.cl`,
+`profesor.duoc.cl` o `gmail.com` y contraseña de 4–10. Cada límite coincide con su columna, así un valor
+demasiado largo o un precio que no cabe en `decimal(12,2)` responde 400 y no 409 ni 500.
+
+- Un campo entero (descuento, stock, stock crítico, cantidad) con decimales, como `15.7`, responde 400 («El
+  cuerpo de la solicitud no es valido.»): `spring.jackson.deserialization.accept-float-as-int: false` en
+  `application.yml` evita que se trunque en silencio.
+- En `PUT /usuarios/me`, la contraseña nueva debe ser distinta de la actual (400), igual que en la interfaz.
+- Una categoría no recibe el paso del asistente (`orden`): la nueva no tiene y la editada conserva el suyo.
+  Los pasos los fija `CargaInicial`, porque el recorrido depende de la tabla de compatibilidad.
 
 - El correo se acepta con mayúsculas (`Camila@Gmail.com`), pero se guarda y se busca en minúsculas: es
   la misma cuenta al registrarse, al iniciar sesión y al comprobar si está repetido.

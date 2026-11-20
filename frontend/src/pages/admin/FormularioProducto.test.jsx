@@ -105,6 +105,20 @@ describe("admin / FormularioProducto", () => {
 			expect(campo("Precio")).not.toHaveClass("is-invalid");
 		});
 
+		it("el precio admite hasta 2 decimales y 10 digitos enteros, como la API (RF-10 CA2)", async () => {
+			montar();
+			const error = () => campo("Precio").closest("div").querySelector(".invalid-feedback");
+
+			for (const invalido of ["19990.555", "12345678901"]) {
+				await escribir("Precio", invalido);
+				expect(campo("Precio")).toHaveClass("is-invalid");
+				expect(error()).toHaveTextContent("Hasta 10 digitos enteros y 2 decimales.");
+			}
+
+			await escribir("Precio", "19990.50");
+			expect(campo("Precio")).not.toHaveClass("is-invalid");
+		});
+
 		it("el descuento debe ser un entero entre 0 y 90 (RF-10 CA2)", async () => {
 			montar();
 

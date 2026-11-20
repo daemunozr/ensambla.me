@@ -49,7 +49,7 @@ public class CategoriaController {
     }
 
     @Operation(summary = "Crea una categoria",
-            description = "Requiere rol ADMIN.")
+            description = "Requiere rol ADMIN. La categoria nueva no es un paso del asistente de armado: esos los fija la carga inicial.")
     @ApiResponse(responseCode = "201", description = "Categoria creada")
     @ApiResponse(responseCode = "400", description = "Datos invalidos")
     @ApiResponse(responseCode = "409", description = "Ya existe una categoria con ese codigo")
@@ -60,7 +60,7 @@ public class CategoriaController {
     }
 
     @Operation(summary = "Edita una categoria",
-            description = "Requiere rol ADMIN. El codigo no cambia: manda el de la ruta.")
+            description = "Requiere rol ADMIN. Solo cambia el nombre: el codigo no cambia (manda el de la ruta) y el paso del asistente se conserva.")
     @ApiResponse(responseCode = "200", description = "Categoria actualizada")
     @ApiResponse(responseCode = "400", description = "Datos invalidos")
     @ApiResponse(responseCode = "404", description = "No existe la categoria")

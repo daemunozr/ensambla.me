@@ -246,12 +246,15 @@ function atender(metodo, ruta, cuerpo, yo) {
 			if (recurso === "productos" && !bd.categorias.some((c) => c.codigo === cuerpo.categoria)) {
 				return error(404, `No existe la categoria ${cuerpo.categoria}.`);
 			}
-			lista.push(clonar(cuerpo));
-			return respuesta(201, mapa(cuerpo));
+			// La API no recibe el paso del asistente: una categoria nueva no tiene.
+			const nuevo = recurso === "productos" ? clonar(cuerpo) : { codigo: cuerpo.codigo, nombre: cuerpo.nombre, orden: null };
+			lista.push(nuevo);
+			return respuesta(201, mapa(nuevo));
 		}
 		if (!existente) return error(404, `No existe el ${etiqueta} ${id}.`);
 		if (metodo === "PUT") {
-			Object.assign(existente, clonar(cuerpo), { [clave]: id });
+			// De una categoria solo cambia el nombre; conserva su paso del asistente.
+			Object.assign(existente, recurso === "productos" ? clonar(cuerpo) : { nombre: cuerpo.nombre }, { [clave]: id });
 			return respuesta(200, mapa(existente));
 		}
 		if (metodo === "DELETE") {
@@ -280,6 +283,9 @@ function atender(metodo, ruta, cuerpo, yo) {
 				let contrasena = yoUsuario.contrasena;
 				if (cuerpo.contrasenaNueva) {
 					if (cuerpo.contrasenaActual !== yoUsuario.contrasena) return error(400, "La contrasena actual no es correcta.");
+					if (cuerpo.contrasenaNueva === cuerpo.contrasenaActual) {
+						return error(400, "La contrasena nueva debe ser distinta de la actual.");
+					}
 					contrasena = cuerpo.contrasenaNueva;
 				}
 				Object.assign(yoUsuario, usuarioDesde({ ...cuerpo, contrasena }, yoUsuario));

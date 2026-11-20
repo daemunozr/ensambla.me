@@ -235,19 +235,20 @@ export async function eliminarUsuario(run, runSesion = null) {
 
 /* ================================================================= Categorias */
 export async function crearCategoria(nueva) {
-	// Las categorias nuevas no participan del asistente: su recorrido depende de
-	// la tabla de compatibilidad, que no se mantiene desde el panel.
-	const respuesta = await api.crearCategoria(categoriaParaApi({ codigo: nueva.codigo, nombre: nueva.nombre }));
+	// Las categorias nuevas no participan del asistente: su recorrido depende de la
+	// tabla de compatibilidad, que no se mantiene desde el panel. La API tampoco
+	// recibe el paso: lo fija su carga inicial.
+	const respuesta = await api.crearCategoria(categoriaParaApi(nueva));
 	if (!respuesta.ok) return rechazo(respuesta.mensaje);
 	await cargarCatalogo();
 	return exito(respuesta.datos, `La categoria ${respuesta.datos.nombre} se creo correctamente.`);
 }
 
-/** Solo cambia el nombre: el codigo es la clave y el orden lo fija el asistente. */
+/** Solo cambia el nombre: el codigo es la clave y la API conserva el paso del asistente. */
 export async function actualizarCategoria(codigo, datos) {
 	const existente = categoria(codigo);
 	if (!existente) return rechazo(`No existe una categoria con el codigo ${codigo}.`);
-	const respuesta = await api.editarCategoria(codigo, categoriaParaApi({ ...existente, nombre: datos.nombre }));
+	const respuesta = await api.editarCategoria(codigo, categoriaParaApi({ codigo, nombre: datos.nombre }));
 	if (!respuesta.ok) return rechazo(respuesta.mensaje);
 	await cargarCatalogo();
 	return exito(respuesta.datos, `La categoria ${respuesta.datos.nombre} se guardo correctamente.`);

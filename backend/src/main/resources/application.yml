@@ -18,6 +18,12 @@ spring:
     open-in-view: false
     show-sql: false
 
+  # Un numero con decimales en un campo entero (descuento 15.7, stock 1.9) responde 400 en vez de
+  # truncarse en silencio.
+  jackson:
+    deserialization:
+      accept-float-as-int: false
+
 server:
   port: 8080
 

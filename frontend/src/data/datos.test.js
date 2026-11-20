@@ -183,14 +183,15 @@ describe("datos: escrituras", () => {
 	it("una categoria nueva se crea sin paso del asistente", async () => {
 		await datos.crearCategoria({ codigo: "sillas", nombre: "Sillas gamer", orden: 9 });
 
-		expect(llamadas[0].cuerpo).toEqual({ codigo: "sillas", nombre: "Sillas gamer", orden: null });
+		expect(llamadas[0].cuerpo).toEqual({ codigo: "sillas", nombre: "Sillas gamer" });
 		expect(datos.categoria("sillas")).toMatchObject({ nombre: "Sillas gamer", orden: null });
 	});
 
-	it("editar una categoria solo cambia el nombre y reenvia su paso del asistente", async () => {
+	it("editar una categoria solo envia el nombre y la API conserva su paso del asistente", async () => {
 		await datos.actualizarCategoria("ram", { codigo: "otro", nombre: "Memorias", orden: 99 });
 
-		expect(llamadas[0]).toMatchObject({ metodo: "PUT", ruta: "/categorias/ram", cuerpo: { codigo: "ram", nombre: "Memorias", orden: 3 } });
+		expect(llamadas[0]).toMatchObject({ metodo: "PUT", ruta: "/categorias/ram", cuerpo: { codigo: "ram", nombre: "Memorias" } });
+		expect(datos.categoria("ram")).toMatchObject({ nombre: "Memorias", orden: 3 });
 	});
 
 	it("una categoria que es paso del asistente no se elimina, sin llamar a la API", async () => {

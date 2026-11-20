@@ -29,19 +29,22 @@ public class CategoriaService {
         return aResponse(buscar(codigo));
     }
 
+    /** Una categoria nueva no es un paso del asistente de armado: esos los fija la carga inicial. */
     public CategoriaResponse crear(CategoriaRequest request) {
         if (categoriaRepository.existsById(request.codigo())) {
             throw new ReglaNegocioException("Ya existe una categoria con el codigo " + request.codigo() + ".");
         }
-        Categoria categoria = new Categoria(request.codigo(), request.nombre(), request.orden());
+        Categoria categoria = new Categoria(request.codigo(), request.nombre(), null);
         return aResponse(categoriaRepository.save(categoria));
     }
 
-    /** El codigo identifica a la categoria y no cambia: se ignora el del cuerpo. */
+    /**
+     * Solo cambia el nombre. El codigo identifica a la categoria y no cambia (se ignora el del cuerpo),
+     * y el paso del asistente se conserva.
+     */
     public CategoriaResponse actualizar(String codigo, CategoriaRequest request) {
         Categoria categoria = buscar(codigo);
         categoria.setNombre(request.nombre());
-        categoria.setOrden(request.orden());
         return aResponse(categoriaRepository.save(categoria));
     }
 

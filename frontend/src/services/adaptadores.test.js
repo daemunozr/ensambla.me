@@ -41,9 +41,9 @@ describe("productos", () => {
 });
 
 describe("categorias", () => {
-	it("hacia la API: reenvia el orden y manda null si no tiene", () => {
-		expect(categoriaParaApi({ codigo: "ram", nombre: "RAM", orden: 3 })).toEqual({ codigo: "ram", nombre: "RAM", orden: 3 });
-		expect(categoriaParaApi({ codigo: "x", nombre: "X" })).toEqual({ codigo: "x", nombre: "X", orden: null });
+	it("hacia la API: solo codigo y nombre; el paso del asistente no se envia", () => {
+		expect(categoriaParaApi({ codigo: "ram", nombre: "RAM", orden: 3 })).toEqual({ codigo: "ram", nombre: "RAM" });
+		expect(categoriaParaApi({ codigo: "x", nombre: "X" })).toEqual({ codigo: "x", nombre: "X" });
 	});
 });
 

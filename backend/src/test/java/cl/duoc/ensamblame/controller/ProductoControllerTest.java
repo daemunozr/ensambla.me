@@ -82,6 +82,17 @@ class ProductoControllerTest {
     }
 
     @Test
+    void unPrecioQueNoCabeEnLaColumnaResponde400EnVezDe409() throws Exception {
+        for (String precio : new String[] {"1e15", "19990.555"}) {
+            String cuerpo = JSON_VALIDO.replace("249990", precio);
+
+            mockMvc.perform(post("/api/v1/productos").contentType(MediaType.APPLICATION_JSON).content(cuerpo))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errores.precio").value("El precio admite hasta 10 digitos enteros y 2 decimales."));
+        }
+    }
+
+    @Test
     void crearConUnSkuRepetidoResponde409() throws Exception {
         when(productoService.crear(any(ProductoRequest.class)))
                 .thenThrow(new ReglaNegocioException("Ya existe un producto con el codigo CPU-R5-7600."));

@@ -1,6 +1,7 @@
 package cl.duoc.ensamblame.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -52,35 +53,37 @@ class CategoriaServiceTest {
     }
 
     @Test
-    void crearGuardaLaCategoriaYDevuelveSuResponse() {
+    void crearGuardaLaCategoriaSinPasoDelAsistenteYDevuelveSuResponse() {
         when(categoriaRepository.existsById("monitores")).thenReturn(false);
         // save devuelve el mismo objeto que recibe.
         when(categoriaRepository.save(any(Categoria.class))).thenAnswer(llamada -> llamada.getArgument(0));
 
-        CategoriaResponse respuesta = servicio.crear(new CategoriaRequest("monitores", "Monitores", null));
+        CategoriaResponse respuesta = servicio.crear(new CategoriaRequest("monitores", "Monitores"));
 
         assertEquals("monitores", respuesta.codigo());
         assertEquals("Monitores", respuesta.nombre());
+        assertNull(respuesta.orden());
     }
 
     @Test
     void crearConUnCodigoRepetidoLanzaConflictoYNoGuarda() {
         when(categoriaRepository.existsById("cpu")).thenReturn(true);
 
-        assertThrows(ReglaNegocioException.class, () -> servicio.crear(new CategoriaRequest("cpu", "Otra", null)));
+        assertThrows(ReglaNegocioException.class, () -> servicio.crear(new CategoriaRequest("cpu", "Otra")));
 
         verify(categoriaRepository, never()).save(any());
     }
 
     @Test
-    void actualizarCambiaElNombreYConservaElCodigoDeLaRuta() {
+    void actualizarCambiaElNombreYConservaElCodigoDeLaRutaYElPasoDelAsistente() {
         when(categoriaRepository.findById("cpu")).thenReturn(Optional.of(new Categoria("cpu", "Procesadores (CPU)", 1)));
         when(categoriaRepository.save(any(Categoria.class))).thenAnswer(llamada -> llamada.getArgument(0));
 
-        CategoriaResponse respuesta = servicio.actualizar("cpu", new CategoriaRequest("otro-codigo", "CPU", 1));
+        CategoriaResponse respuesta = servicio.actualizar("cpu", new CategoriaRequest("otro-codigo", "CPU"));
 
         assertEquals("cpu", respuesta.codigo());
         assertEquals("CPU", respuesta.nombre());
+        assertEquals(1, respuesta.orden());
     }
 
     @Test
@@ -88,7 +91,7 @@ class CategoriaServiceTest {
         when(categoriaRepository.findById("nada")).thenReturn(Optional.empty());
 
         assertThrows(RecursoNoEncontradoException.class,
-                () -> servicio.actualizar("nada", new CategoriaRequest("nada", "Nada", null)));
+                () -> servicio.actualizar("nada", new CategoriaRequest("nada", "Nada")));
     }
 
     @Test

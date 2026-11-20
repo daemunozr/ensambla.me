@@ -20,7 +20,9 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Arranca la aplicacion completa (JPA, CargaInicial, seguridad y springdoc) con H2 en memoria y
- * revisa la especificacion OpenAPI que publica. Tambien recorre login -> token -> consulta real.
+ * revisa la especificacion OpenAPI que publica. Tambien recorre login -> token -> consulta real, y
+ * prueba la configuracion de Jackson de application.yml, que las pruebas de controlador con
+ * MockMvc standalone no cargan.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -125,17 +127,36 @@ class SwaggerTest {
         assertThat(comprar.get("security").toString()).contains("bearerAuth").contains("{}");
     }
 
-    @Test
-    void conUnLoginRealUnAdminVeLasTresBoletasDeLaCargaInicial() throws Exception {
+    private String tokenDeAdmin() throws Exception {
         String login = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"correo\":\"admin@duoc.cl\",\"contrasena\":\"admin1234\"}"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        String token = mapper.readTree(login).get("accessToken").asText();
+        return mapper.readTree(login).get("accessToken").asText();
+    }
+
+    @Test
+    void conUnLoginRealUnAdminVeLasTresBoletasDeLaCargaInicial() throws Exception {
+        String token = tokenDeAdmin();
 
         mockMvc.perform(get("/api/v1/boletas").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(3));
+    }
+
+    @Test
+    void unEnteroConDecimalesResponde400EnVezDeTruncarse() throws Exception {
+        String token = tokenDeAdmin();
+        String[] cuerpos = {
+            "{\"sku\":\"DEC-001\",\"nombre\":\"Prueba\",\"precio\":1000,\"descuento\":15.7,\"stock\":1,\"categoria\":\"cpu\"}",
+            "{\"sku\":\"DEC-002\",\"nombre\":\"Prueba\",\"precio\":1000,\"stock\":1.9,\"categoria\":\"cpu\"}"};
+
+        for (String cuerpo : cuerpos) {
+            mockMvc.perform(post("/api/v1/productos").header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON).content(cuerpo))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mensaje").value("El cuerpo de la solicitud no es valido."));
+        }
     }
 }

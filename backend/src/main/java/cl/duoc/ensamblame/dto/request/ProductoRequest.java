@@ -2,6 +2,7 @@ package cl.duoc.ensamblame.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -28,6 +29,8 @@ public record ProductoRequest(
 
         @NotNull(message = "El precio es obligatorio.")
         @DecimalMin(value = "0", message = "El precio no puede ser negativo.")
+        // Lo que cabe en la columna decimal(12,2); un valor mayor respondia 409 al chocar con la base.
+        @Digits(integer = 10, fraction = 2, message = "El precio admite hasta 10 digitos enteros y 2 decimales.")
         @Schema(description = "Precio de lista en pesos, con IVA incluido", example = "249990")
         BigDecimal precio,
 

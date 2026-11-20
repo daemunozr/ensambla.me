@@ -86,6 +86,9 @@ public class UsuarioService {
                     || !passwordEncoder.matches(request.contrasenaActual(), usuario.getContrasena())) {
                 throw new SolicitudInvalidaException("La contrasena actual no es correcta.");
             }
+            if (request.contrasenaNueva().equals(request.contrasenaActual())) {
+                throw new SolicitudInvalidaException("La contrasena nueva debe ser distinta de la actual.");
+            }
             usuario.setContrasena(passwordEncoder.encode(request.contrasenaNueva()));
         }
 
