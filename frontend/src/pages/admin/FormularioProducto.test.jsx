@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router";
 import { categorias, producto, productos } from "../../data/datos.js";
@@ -27,6 +27,9 @@ function montar(ruta = "/admin/productos/nuevo") {
 // "Precio" y "Stock" no deben confundirse con "Precio final" ni con "Stock critico".
 const campo = (etiqueta) => screen.getByLabelText(new RegExp(`^${etiqueta}(?! final| critico)`));
 const guardar = () => userEvent.click(screen.getByRole("button", { name: "Guardar producto" }));
+// Guardar llama a la API y luego navega: hay que esperar la navegacion antes de revisar lo guardado.
+const volvioAlListado = (sku) =>
+	waitFor(() => expect(screen.getByTestId("ubicacion")).toHaveTextContent(`/admin/productos?guardado=${sku}`));
 const escribir = async (etiqueta, valor) => {
 	const control = campo(etiqueta);
 	await userEvent.clear(control);
@@ -150,6 +153,7 @@ describe("admin / FormularioProducto", () => {
 
 			await guardar();
 
+			await volvioAlListado("NUEVO-001");
 			expect(producto("NUEVO-001")).toMatchObject({
 				nombre: "Producto de prueba",
 				precio: 10000,
@@ -158,7 +162,6 @@ describe("admin / FormularioProducto", () => {
 				stockCritico: 2,
 				categoria: "cpu",
 			});
-			expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/productos?guardado=NUEVO-001");
 		});
 
 		it("el descuento y el stock critico vacios se guardan vacios (sin oferta ni alerta)", async () => {
@@ -167,6 +170,7 @@ describe("admin / FormularioProducto", () => {
 
 			await guardar();
 
+			await volvioAlListado("NUEVO-001");
 			expect(producto("NUEVO-001")).toMatchObject({ descuento: "", stockCritico: "" });
 		});
 
@@ -177,6 +181,7 @@ describe("admin / FormularioProducto", () => {
 
 			await guardar();
 
+			await volvioAlListado("NUEVO-001");
 			expect(producto("NUEVO-001").video).toBe("resources/video/ensamblame.mp4");
 		});
 
@@ -186,7 +191,7 @@ describe("admin / FormularioProducto", () => {
 
 			await guardar();
 
-			expect(screen.getByRole("alert")).toHaveTextContent("Ya existe un producto con el codigo CPU-R5-7600.");
+			expect(await screen.findByRole("alert")).toHaveTextContent("Ya existe un producto con el codigo CPU-R5-7600.");
 			expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/productos/nuevo");
 			expect(producto("CPU-R5-7600").nombre).toBe("AMD Ryzen 5 7600");
 		});
@@ -218,8 +223,8 @@ describe("admin / FormularioProducto", () => {
 			await escribir("Descuento", "");
 			await guardar();
 
+			await volvioAlListado("CPU-R5-7600");
 			expect(producto("CPU-R5-7600")).toMatchObject({ stock: 99, descuento: "" });
-			expect(screen.getByTestId("ubicacion")).toHaveTextContent("/admin/productos?guardado=CPU-R5-7600");
 		});
 
 		it("un codigo que no existe avisa al abrir", () => {
